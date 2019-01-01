@@ -31,6 +31,9 @@ class Alpha {
   virtual void Generate(int di, double* alpha) = 0;
 
  private:
+  void UpdateValid(int di);
+
+ private:
   DataRegistry& dr_ = DataRegistry::Instance();
   std::string name_;
   ParamMap params_;

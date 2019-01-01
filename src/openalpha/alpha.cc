@@ -48,7 +48,10 @@ Alpha* PyAlpha::Initialize(const std::string& name, ParamMap&& params) {
     module_name += "__" + std::to_string(n);
     auto fn2 = module_name + ".py";
     auto path2 = "'" + (path.parent_path() / fn2).string() + "'";
-    system(("[ ! -s " + path2 + " ] && ln -s '" + fn + "' " + path2).c_str());
+    if (system(("[ ! -s " + path2 + " ] && ln -s '" + fn + "' " + path2)
+                   .c_str())) {
+      // only for avoiding compile warning
+    }
     LOG_INFO("Alpha: link '" + path.string() + "' to '" + fn2 + "'");
   }
 
@@ -88,6 +91,13 @@ Alpha* PyAlpha::Initialize(const std::string& name, ParamMap&& params) {
   return this;
 }
 
+void Alpha::UpdateValid(int di) {
+  auto adv60 = dr_.Get("adv60");
+  // https://github.com/apache/arrow/blob/master/cpp/examples/arrow/row-wise-conversion-example.cc
+  auto array = std::static_pointer_cast<arrow::DoubleArray>(
+      adv60->column(di)->data()->chunk(0));
+}
+
 void PyAlpha::Generate(int di, double* alpha) {
   auto py_alpha =
       np::from_data(alpha, np::dtype::get_builtin<decltype(alpha[0])>(),
@@ -104,7 +114,10 @@ void PyAlpha::Generate(int di, double* alpha) {
 void AlphaRegistry::Run() {
   auto num_dates = dr_.Get("date")->num_rows();
   for (auto i = 0l; i < num_dates; ++i) {
-    for (auto& pair : alphas_) pair.second->Generate(i, pair.second->alpha_[i]);
+    for (auto& pair : alphas_) {
+      pair.second->UpdateValid(i);
+      pair.second->Generate(i, pair.second->alpha_[i]);
+    }
   }
 }
 
