@@ -1,0 +1,37 @@
+FROM ubuntu:bionic
+
+RUN apt-get update \
+  && apt-get install -y \
+    g++  \
+    make \
+    cmake \
+    clang-format \
+    clang \
+    python \
+    python3-dev \
+    vim \
+    exuberant-ctags \
+    git \
+    wget \
+    liblog4cxx-dev \
+    libjemalloc-dev bison flex zlib1g-dev libsnappy-dev liblz4-dev libbrotli-dev libzstd-dev rapidjson-dev thrift-compiler autoconf \
+  && pip3 install six numpy pandas cython pytest \
+  && wget https://dl.bintray.com/boostorg/release/1.65.1/source/boost_1_65_1.tar.gz \
+  && tar xzf boost_1_65_1.tar.gz \
+  && cd boost_1_65_1 \
+  && ./bootstrap.sh --prefix=/usr/local --with-python-version=3.6 \
+  && ./b2 -j `getconf _NPROCESSORS_ONLN` && ./b2 install \
+  && cd .. \
+  && /bin/rm -rf boost* \
+  && git clone https://github.com/apache/arrow.git \
+  && cd arrow/cpp \
+  && mkdir -p release \
+  && cd release \
+  && cmake -DCMAKE_BUILD_TYPE=release -DCMAKE_INSTALL_PREFIX=/usr/local -DARROW_PARQUET=on -DARROW_PYTHON=on -DARROW_PLASMA=on -DARROW_BUILD_TESTS=OFF -DPYTHON_EXECUTABLE:FILEPATH=`which python3` -DPYTHON_LIBRARY=/usr/lib/x86_64-linux-gnu/libpython3.6m.so.1.0 .. \
+  && make -j `getconf _NPROCESSORS_ONLN` && make install \
+  && cd ../../python \
+  && python3 setup.py build_ext --inplace --with-parquet \
+  && cp -rf pyarrow `python3 -c "import site; print(site.getsitepackages()[0])"` \
+  && cd ../.. \
+  && /bin/rm -rf arrow
+  && echo "export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:/usr/local/lib" >> .bashrc

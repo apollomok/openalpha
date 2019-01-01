@@ -1,0 +1,13 @@
+build
+logs
+*.swp
+.*
+tags
+*.so
+openalpha.conf
+log.conf
+log.conf
+cache
+core
+__pycache__
+*.pyc
