@@ -115,19 +115,44 @@ Alpha* PyAlpha::Initialize(const std::string& name, ParamMap&& params) {
   bp::import("sys").attr("path").attr("pop");
   bp::import("sys").attr("path").attr("reverse");
 
+  int_array_.resize(num_symbols_);
+  double_array_.resize(num_symbols_);
+
   return this;
 }
 
 void Alpha::UpdateValid(int di) {
-  auto adv60 = dr_.Get("adv60_t");
   // https://github.com/apache/arrow/blob/master/cpp/examples/arrow/row-wise-conversion-example.cc
-  auto array = std::static_pointer_cast<arrow::DoubleArray>(
-      adv60->column(di)->data()->chunk(0));
-  auto idx = ArgSort(array->raw_values(), adv60->num_rows());
+  auto values = std::static_pointer_cast<arrow::DoubleArray>(
+                    dr_.Get("adv60_t")->column(di)->data()->chunk(0))
+                    ->raw_values();
+  for (auto i = 0u; i < int_array_.size(); ++i) int_array_[i] = i;
+  std::sort(int_array_.begin(), int_array_.end(),
+            [&values](auto i, auto j) { return values[i] < values[j]; });
   auto valid = valid_[di];
   auto n = 0;
-  for (auto it = idx.rbegin(); it != idx.rend() && n < universe_; ++it, ++n) {
+  for (auto it = int_array_.rbegin(); it != int_array_.rend() && n < universe_;
+       ++it, ++n) {
     valid[*it] = true;
+  }
+}
+
+void Alpha::CalcPos(int di) {
+  const int64_t* groups = nullptr;
+  if (neutralization_ != kNeutralizationByMarket) {
+    auto name = neutralization_ + "_t";
+    DataRegistry::Assert<int64_t>(name);
+    groups = std::static_pointer_cast<arrow::Int64Array>(
+                 dr_.Get(name)->column(di)->data()->chunk(0))
+                 ->raw_values();
+  }
+  auto ng = 0;
+  auto a = alpha_[di];
+  std::map<int64_t, std::vector<int>> grouped;
+  for (auto i = 0; i < num_symbols_; ++i) {
+    if (std::isnan(a[i])) continue;
+    auto ig = groups ? 0 : groups[i];
+    if (ig > 0) grouped[ig].push_back(i);
   }
 }
 
@@ -148,8 +173,11 @@ void AlphaRegistry::Run() {
   auto num_dates = dr_.Get("date")->num_rows();
   for (auto i = 0l; i < num_dates; ++i) {
     for (auto& pair : alphas_) {
-      pair.second->UpdateValid(i);
-      pair.second->Generate(i, pair.second->alpha_[i]);
+      auto a = pair.second;
+      if (i < a->lookback_days_ + a->delay_) continue;
+      a->UpdateValid(i);
+      a->Generate(i, a->alpha_[i]);
+      a->CalcPos(i);
     }
   }
 }

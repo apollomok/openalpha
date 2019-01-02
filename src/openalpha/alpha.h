@@ -32,6 +32,7 @@ class Alpha {
 
  private:
   void UpdateValid(int di);
+  void CalcPos(int di);
 
  private:
   DataRegistry& dr_ = DataRegistry::Instance();
@@ -48,6 +49,8 @@ class Alpha {
   bool** valid_ = nullptr;
   size_t num_dates_ = 0;
   size_t num_symbols_ = 0;
+  std::vector<int64_t> int_array_;
+  std::vector<double> double_array_;
   friend class AlphaRegistry;
   friend class PyAlpha;
 };
