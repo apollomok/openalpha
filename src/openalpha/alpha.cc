@@ -124,7 +124,7 @@ Alpha* PyAlpha::Initialize(const std::string& name, ParamMap&& params) {
 void Alpha::UpdateValid(int di) {
   // https://github.com/apache/arrow/blob/master/cpp/examples/arrow/row-wise-conversion-example.cc
   auto values = std::static_pointer_cast<arrow::DoubleArray>(
-                    dr_.Get("adv60_t")->column(di)->data()->chunk(0))
+                    dr_.Get("adv60_t")->column(di - delay_)->data()->chunk(0))
                     ->raw_values();
   for (auto i = 0u; i < int_array_.size(); ++i) int_array_[i] = i;
   std::sort(int_array_.begin(), int_array_.end(),
@@ -143,16 +143,53 @@ void Alpha::CalcPos(int di) {
     auto name = neutralization_ + "_t";
     DataRegistry::Assert<int64_t>(name);
     groups = std::static_pointer_cast<arrow::Int64Array>(
-                 dr_.Get(name)->column(di)->data()->chunk(0))
+                 dr_.Get(name)->column(di - delay_)->data()->chunk(0))
                  ->raw_values();
   }
-  auto ng = 0;
-  auto a = alpha_[di];
+  auto alpha = alpha_[di];
+  auto valid = valid_[di];
   std::map<int64_t, std::vector<int>> grouped;
-  for (auto i = 0; i < num_symbols_; ++i) {
-    if (std::isnan(a[i])) continue;
-    auto ig = groups ? 0 : groups[i];
-    if (ig > 0) grouped[ig].push_back(i);
+  auto nan = std::nan("");
+  for (auto ii = 0u; ii < num_symbols_; ++ii) {
+    double_array_[ii] = nan;
+    if (!valid[ii]) continue;
+    auto v = alpha[ii];
+    if (std::isnan(alpha[ii])) continue;
+    if (decay_ > 1) {
+      auto nsum = decay_;
+      auto sum = decay_ * v;
+      for (auto j = 1; j < decay_; ++j) {
+        auto di2 = di - j;
+        if (di2 < 0) continue;
+        auto v2 = alpha_[di2][ii];
+        if (std::isnan(v2)) continue;
+        auto n = decay_ - j;
+        nsum += n;
+        sum += v2 * n;
+      }
+      v = sum / nsum;
+    }
+    double_array_[ii] = v;
+    auto ig = groups ? 0 : groups[ii];
+    if (ig > 0) grouped[ig].push_back(ii);
+  }
+  auto sum = 0.;
+  for (auto& pair : grouped) {
+    if (pair.second.size() == 1) {
+      auto ii = pair.second[0];
+      double_array_[ii] = nan;
+      continue;
+    }
+    auto sum2 = 0.;
+    for (auto ii : pair.second) sum2 += double_array_[ii];
+    auto avg = sum2 / pair.second.size();
+    for (auto ii : pair.second) {
+      double_array_[ii] -= avg;
+      sum += std::abs(double_array_[ii]);
+    }
+  }
+  for (auto& v : double_array_) {
+    if (!std::isnan(v)) v = std::round(v / sum * book_size_);
   }
 }
 
@@ -171,13 +208,13 @@ void PyAlpha::Generate(int di, double* alpha) {
 
 void AlphaRegistry::Run() {
   auto num_dates = dr_.Get("date")->num_rows();
-  for (auto i = 0l; i < num_dates; ++i) {
+  for (auto i = 0l; i < num_dates - 1; ++i) {
     for (auto& pair : alphas_) {
-      auto a = pair.second;
-      if (i < a->lookback_days_ + a->delay_) continue;
-      a->UpdateValid(i);
-      a->Generate(i, a->alpha_[i]);
-      a->CalcPos(i);
+      auto alpha = pair.second;
+      if (i < alpha->lookback_days_ + alpha->delay_) continue;
+      alpha->UpdateValid(i);
+      alpha->Generate(i, alpha->alpha_[i]);
+      alpha->CalcPos(i);
     }
   }
 }
