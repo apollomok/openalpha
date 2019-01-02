@@ -28,6 +28,33 @@ Alpha* Alpha::Initialize(const std::string& name, ParamMap&& params) {
     valid_[i] = raw_valid + i * num_symbols_;
   }
 
+  auto param = GetParam("delay");
+  if (param.size()) delay_ = atoi(param.c_str());
+  param = GetParam("decay");
+  if (param.size()) decay_ = atoi(param.c_str());
+  param = GetParam("universe");
+  if (param.size()) universe_ = atoi(param.c_str());
+  param = GetParam("lookback_days");
+  if (param.size()) lookback_days_ = atoi(param.c_str());
+  param = GetParam("book_size");
+  if (param.size()) book_size_ = atof(param.c_str());
+  param = GetParam("max_stock_weight");
+  if (param.size()) max_stock_weight_ = atof(param.c_str());
+  param = GetParam("neutralization");
+  if (param == kNeutralizationByMarket)
+    neutralization_ = kNeutralizationByMarket;
+  else if (param == kNeutralizationBySector)
+    neutralization_ = kNeutralizationBySector;
+  else if (param == kNeutralizationByIndustry)
+    neutralization_ = kNeutralizationByIndustry;
+  else if (param == kNeutralizationBySubIndustry)
+    neutralization_ = kNeutralizationBySubIndustry;
+  LOG_INFO("Alpha: " << name << "\ndelay=" << delay_ << "\ndecay=" << decay_
+                     << "\nuniverse=" << universe_ << "\nlookback_days="
+                     << lookback_days_ << "\nbook_size=" << book_size_
+                     << "\nmax_stock_weight=" << max_stock_weight_
+                     << "\nneutralization=" << neutralization_);
+
   return this;
 }
 
@@ -92,10 +119,16 @@ Alpha* PyAlpha::Initialize(const std::string& name, ParamMap&& params) {
 }
 
 void Alpha::UpdateValid(int di) {
-  auto adv60 = dr_.Get("adv60");
+  auto adv60 = dr_.Get("adv60_t");
   // https://github.com/apache/arrow/blob/master/cpp/examples/arrow/row-wise-conversion-example.cc
   auto array = std::static_pointer_cast<arrow::DoubleArray>(
       adv60->column(di)->data()->chunk(0));
+  auto idx = ArgSort(array->raw_values(), adv60->num_rows());
+  auto valid = valid_[di];
+  auto n = 0;
+  for (auto it = idx.rbegin(); it != idx.rend() && n < universe_; ++it, ++n) {
+    valid[*it] = true;
+  }
 }
 
 void PyAlpha::Generate(int di, double* alpha) {

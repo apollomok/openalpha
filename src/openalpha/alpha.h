@@ -10,10 +10,10 @@
 
 namespace openalpha {
 
-inline const std::string KNeutralizationByMarket = "market";
-inline const std::string KNeutralizationBySector = "sector";
-inline const std::string KNeutralizationByIndustry = "industry";
-inline const std::string KNeutralizationBySubIndustry = "subindustry";
+inline const std::string kNeutralizationByMarket = "market";
+inline const std::string kNeutralizationBySector = "sector";
+inline const std::string kNeutralizationByIndustry = "industry";
+inline const std::string kNeutralizationBySubIndustry = "subindustry";
 
 class Alpha {
  public:
@@ -43,7 +43,7 @@ class Alpha {
   int decay_ = 4;
   double max_stock_weight_ = 0.1;
   double book_size_ = 2e6;
-  std::string neutralization_ = KNeutralizationBySubIndustry;
+  std::string neutralization_ = kNeutralizationBySubIndustry;
   double** alpha_ = nullptr;
   bool** valid_ = nullptr;
   size_t num_dates_ = 0;

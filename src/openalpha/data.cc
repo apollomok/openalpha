@@ -86,11 +86,8 @@ void Assert(const std::string& name) {
 void DataRegistry::Initialize() {
   GetPy("symbol");
   GetPy("date");
-  GetPy("sector");
-  GetPy("industry");
-  GetPy("subindustry");
-  GetPy("adv60");
-  Assert<double>("adv60");
+  GetPy("adv60_t");
+  Assert<double>("adv60_t");
 }
 
 }  // namespace openalpha

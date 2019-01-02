@@ -5,6 +5,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace openalpha {
 
@@ -40,6 +41,15 @@ const typename V::mapped_type& FindInMap(std::shared_ptr<V> map,
   auto it = map->find(key);
   if (it == map->end()) return kValue;
   return it->second;
+}
+
+template <typename T>
+std::vector<int> ArgSort(const T& in, size_t n) {
+  std::vector<int> out(n, 0);
+  for (auto i = 0u; i < n; ++i) out[i] = i;
+  std::sort(out.begin(), out.end(),
+            [&in](auto i, auto j) { return in[i] < in[j]; });
+  return out;
 }
 
 }  // namespace openalpha
