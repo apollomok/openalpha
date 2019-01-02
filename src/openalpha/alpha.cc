@@ -11,14 +11,13 @@ static std::map<std::string, int> kUsedAlphaFileNames;
 Alpha* Alpha::Initialize(const std::string& name, ParamMap&& params) {
   name_ = name;
   params_ = std::move(params);
-  num_dates_ = dr_.Get("date")->num_rows();
-  num_symbols_ = dr_.Get("symbol")->num_rows();
+  num_dates_ = dr_.GetData("date")->num_rows();
+  num_symbols_ = dr_.GetData("symbol")->num_rows();
   auto n = num_dates_ * num_symbols_;
   auto raw_alpha = new double[n];  // memory leak
   auto raw_valid = new bool[n];    // memory leak
-  auto nan = std::nan("");
   for (auto i = 0lu; i < n; ++i) {
-    raw_alpha[i] = nan;
+    raw_alpha[i] = kNaN;
     raw_valid[i] = false;
   }
   alpha_ = new double*[num_dates_];
@@ -117,15 +116,17 @@ Alpha* PyAlpha::Initialize(const std::string& name, ParamMap&& params) {
 
   int_array_.resize(num_symbols_);
   double_array_.resize(num_symbols_);
+  ret_.resize(num_dates_, kNaN);
 
   return this;
 }
 
 void Alpha::UpdateValid(int di) {
   // https://github.com/apache/arrow/blob/master/cpp/examples/arrow/row-wise-conversion-example.cc
-  auto values = std::static_pointer_cast<arrow::DoubleArray>(
-                    dr_.Get("adv60_t")->column(di - delay_)->data()->chunk(0))
-                    ->raw_values();
+  auto values =
+      std::static_pointer_cast<arrow::DoubleArray>(
+          dr_.GetData("adv60_t")->column(di - delay_)->data()->chunk(0))
+          ->raw_values();
   for (auto i = 0u; i < int_array_.size(); ++i) int_array_[i] = i;
   std::sort(int_array_.begin(), int_array_.end(),
             [&values](auto i, auto j) { return values[i] < values[j]; });
@@ -137,23 +138,20 @@ void Alpha::UpdateValid(int di) {
   }
 }
 
-void Alpha::CalcPos(int di) {
-  const int64_t* groups = nullptr;
-  if (neutralization_ != kNeutralizationByMarket) {
-    auto name = neutralization_ + "_t";
-    DataRegistry::Assert<int64_t>(name);
-    groups = std::static_pointer_cast<arrow::Int64Array>(
-                 dr_.Get(name)->column(di - delay_)->data()->chunk(0))
-                 ->raw_values();
-  }
+void Alpha::Calculate(int di) {
+  auto groups = neutralization_ != kNeutralizationByMarket
+                    ? dr_.Values<int64_t>(neutralization_ + "_t", di - delay_)
+                    : nullptr;
   auto alpha = alpha_[di];
   auto valid = valid_[di];
   std::map<int64_t, std::vector<int>> grouped;
-  auto nan = std::nan("");
   for (auto ii = 0u; ii < num_symbols_; ++ii) {
-    double_array_[ii] = nan;
-    if (!valid[ii]) continue;
+    double_array_[ii] = kNaN;
     auto v = alpha[ii];
+    if (!valid[ii]) {
+      if (!std::isnan(v)) alpha[ii] = kNaN;
+      continue;
+    }
     if (std::isnan(alpha[ii])) continue;
     if (decay_ > 1) {
       auto nsum = decay_;
@@ -177,7 +175,7 @@ void Alpha::CalcPos(int di) {
   for (auto& pair : grouped) {
     if (pair.second.size() == 1) {
       auto ii = pair.second[0];
-      double_array_[ii] = nan;
+      double_array_[ii] = kNaN;
       continue;
     }
     auto sum2 = 0.;
@@ -188,9 +186,17 @@ void Alpha::CalcPos(int di) {
       sum += std::abs(double_array_[ii]);
     }
   }
-  for (auto& v : double_array_) {
-    if (!std::isnan(v)) v = std::round(v / sum * book_size_);
+  auto pnl = 0.;
+  auto close0 = dr_.Values<double>("close_t", di);
+  auto close_1 = dr_.Values<double>("close_t", di - 1);
+  for (auto ii = 0u; ii < num_symbols_; ++ii) {
+    auto& v = double_array_[ii];
+    if (std::isnan(v)) continue;
+    v = std::round(v / sum * book_size_);
+    auto ret = close0[ii] / close_1[ii] - 1;
+    pnl += v * ret;
   }
+  ret_[di] = pnl / book_size_;
 }
 
 void PyAlpha::Generate(int di, double* alpha) {
@@ -207,14 +213,14 @@ void PyAlpha::Generate(int di, double* alpha) {
 }
 
 void AlphaRegistry::Run() {
-  auto num_dates = dr_.Get("date")->num_rows();
-  for (auto i = 0l; i < num_dates - 1; ++i) {
+  auto num_dates = dr_.GetData("date")->num_rows();
+  for (auto i = 1; i < num_dates; ++i) {
     for (auto& pair : alphas_) {
       auto alpha = pair.second;
       if (i < alpha->lookback_days_ + alpha->delay_) continue;
       alpha->UpdateValid(i);
       alpha->Generate(i, alpha->alpha_[i]);
-      alpha->CalcPos(i);
+      alpha->Calculate(i);
     }
   }
 }

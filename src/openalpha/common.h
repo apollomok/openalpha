@@ -2,6 +2,7 @@
 #define OPENALPHA_COMMON_H_
 
 #include <boost/filesystem.hpp>
+#include <cmath>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -11,6 +12,8 @@ namespace openalpha {
 
 namespace fs = boost::filesystem;
 static inline fs::path kCachePath = fs::path(".") / "cache";
+static inline fs::path kStorePath = fs::path(".") / "store";
+static const double kNaN = std::nan("");
 
 template <typename V>
 class Singleton {

@@ -64,6 +64,9 @@ int main(int argc, char *argv[]) {
         .write(openalpha::kDefaultLogConf, strlen(openalpha::kDefaultLogConf));
   }
 
+  if (!openalpha::fs::exists(openalpha::kStorePath)) {
+    openalpha::fs::create_directory(openalpha::kStorePath);
+  }
   openalpha::kCachePath = cache_path;
   openalpha::Logger::Initialize("openalpha", log_config_file_path);
   openalpha::InitalizePy();

@@ -6,7 +6,7 @@
 
 namespace openalpha {
 
-DataRegistry::Array DataRegistry::Get(const std::string& name) {
+DataRegistry::Array DataRegistry::GetData(const std::string& name) {
   auto out = array_map_[name];
   if (out) return out;
   try {
@@ -21,10 +21,15 @@ DataRegistry::Array DataRegistry::Get(const std::string& name) {
   return out;
 }
 
+bool DataRegistry::Has(const std::string& name) {
+  auto path = kCachePath / (name + ".par");
+  return fs::exists(path);
+}
+
 bp::object DataRegistry::GetPy(const std::string& name) {
   auto out = py_array_map_[name];
   if (out) return out;
-  auto array = Get(name);
+  auto array = GetData(name);
   auto ptr = arrow::py::wrap_table(array);
   out = bp::object(bp::handle<>(bp::borrowed(ptr)))
             .attr("to_pandas")()
@@ -37,8 +42,6 @@ bp::object DataRegistry::GetPy(const std::string& name) {
 void DataRegistry::Initialize() {
   GetPy("symbol");
   GetPy("date");
-  GetPy("adv60_t");
-  Assert<double>("adv60_t");
 }
 
 }  // namespace openalpha
