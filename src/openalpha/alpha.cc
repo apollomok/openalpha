@@ -1,5 +1,6 @@
 #include "alpha.h"
 
+#include <iomanip>
 #include <map>
 
 #include "logger.h"
@@ -116,7 +117,9 @@ Alpha* PyAlpha::Initialize(const std::string& name, ParamMap&& params) {
 
   int_array_.resize(num_symbols_);
   double_array_.resize(num_symbols_);
+  pos_.resize(num_symbols_, kNaN);
   ret_.resize(num_dates_, kNaN);
+  turnover_.resize(num_dates_, kNaN);
 
   return this;
 }
@@ -145,8 +148,10 @@ void Alpha::Calculate(int di) {
   auto alpha = alpha_[di];
   auto valid = valid_[di];
   std::map<int64_t, std::vector<int>> grouped;
+  auto pos_1 = double_array_;
   for (auto ii = 0u; ii < num_symbols_; ++ii) {
-    double_array_[ii] = kNaN;
+    pos_1[ii] = pos_[ii];
+    pos_[ii] = kNaN;
     auto v = alpha[ii];
     if (!valid[ii]) {
       if (!std::isnan(v)) alpha[ii] = kNaN;
@@ -167,36 +172,69 @@ void Alpha::Calculate(int di) {
       }
       v = sum / nsum;
     }
-    double_array_[ii] = v;
+    pos_[ii] = v;
     auto ig = groups ? 0 : groups[ii];
     if (ig > 0) grouped[ig].push_back(ii);
   }
-  auto sum = 0.;
-  for (auto& pair : grouped) {
-    if (pair.second.size() == 1) {
-      auto ii = pair.second[0];
-      double_array_[ii] = kNaN;
-      continue;
+
+  double sum;
+  auto max_try = 10;
+  for (auto itry = 0; itry <= max_try; ++itry) {
+    sum = 0;
+    for (auto& pair : grouped) {
+      if (pair.second.size() == 1) {
+        auto ii = pair.second[0];
+        pos_[ii] = kNaN;
+        continue;
+      }
+      auto sum2 = 0.;
+      for (auto ii : pair.second) sum2 += pos_[ii];
+      auto avg = sum2 / pair.second.size();
+      for (auto ii : pair.second) {
+        pos_[ii] -= avg;
+        sum += std::abs(pos_[ii]);
+      }
     }
-    auto sum2 = 0.;
-    for (auto ii : pair.second) sum2 += double_array_[ii];
-    auto avg = sum2 / pair.second.size();
-    for (auto ii : pair.second) {
-      double_array_[ii] -= avg;
-      sum += std::abs(double_array_[ii]);
+    if (sum == 0) return;
+    if (max_stock_weight_ <= 0 || itry == max_try) break;
+    auto max_value = max_stock_weight_ * sum;
+    auto threshold = max_value * 1.01;
+    auto breach = false;
+    for (auto v : pos_) {
+      if (std::isnan(v)) continue;
+      if (std::abs(v) > threshold) {
+        breach = true;
+        break;
+      }
+    }
+    if (!breach) break;
+    for (auto& v : pos_) {
+      if (std::isnan(v)) continue;
+      if (std::abs(v) > max_value) v = max_value * (v > 0 ? 1 : -1);
     }
   }
+
   auto pnl = 0.;
   auto close0 = dr_.Values<double>("close_t", di);
   auto close_1 = dr_.Values<double>("close_t", di - 1);
   for (auto ii = 0u; ii < num_symbols_; ++ii) {
-    auto& v = double_array_[ii];
+    auto& v = pos_[ii];
     if (std::isnan(v)) continue;
     v = std::round(v / sum * book_size_);
     auto ret = close0[ii] / close_1[ii] - 1;
     pnl += v * ret;
   }
   ret_[di] = pnl / book_size_;
+
+  auto turnover = 0.;
+  for (auto ii = 0u; ii < num_symbols_; ++ii) {
+    auto v = pos_[ii];
+    if (std::isnan(v)) v = 0;
+    auto v_1 = pos_1[ii];
+    if (std::isnan(v_1)) v_1 = 0;
+    turnover += v - v_1;
+  }
+  turnover_[di] = turnover / book_size_ / 2;
 }
 
 void PyAlpha::Generate(int di, double* alpha) {
@@ -221,6 +259,22 @@ void AlphaRegistry::Run() {
       alpha->UpdateValid(i);
       alpha->Generate(i, alpha->alpha_[i]);
       alpha->Calculate(i);
+    }
+  }
+  auto date = dr_.Values<int64_t>("date", 0);
+  for (auto& pair : alphas_) {
+    auto alpha = pair.second;
+    auto path = kStorePath / alpha->name();
+    if (!fs::exists(path)) fs::create_directory(path);
+    std::ofstream os((path / "perf.csv").string().c_str());
+    auto ret = alpha->ret_;
+    auto turnover = alpha->turnover_;
+    os << "date,return,turnover\n";
+    for (auto di = 0; di < num_dates; ++di) {
+      auto v = ret[di];
+      if (std::isnan(v)) continue;
+      os << std::setprecision(15) << date[di] << ',' << v << ',' << turnover[di]
+         << '\n';
     }
   }
 }

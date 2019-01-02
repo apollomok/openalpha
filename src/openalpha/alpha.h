@@ -51,7 +51,9 @@ class Alpha {
   size_t num_symbols_ = 0;
   std::vector<int64_t> int_array_;
   std::vector<double> double_array_;
+  std::vector<double> pos_;
   std::vector<double> ret_;
+  std::vector<double> turnover_;
   friend class AlphaRegistry;
   friend class PyAlpha;
 };
