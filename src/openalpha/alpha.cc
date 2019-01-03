@@ -124,8 +124,7 @@ Alpha* PyAlpha::Initialize(const std::string& name, ParamMap&& params) {
   int_array_.resize(num_symbols_);
   double_array_.resize(num_symbols_);
   pos_.resize(num_symbols_, kNaN);
-  ret_.resize(num_dates_, kNaN);
-  tvr_.resize(num_dates_, kNaN);
+  stats_.resize(num_symbols_);
   date_ = dr_.Values<int64_t>("date", 0);
 
   return this;
@@ -156,6 +155,8 @@ void Alpha::Calculate(int di) {
   auto valid = valid_[di];
   std::map<int64_t, std::vector<int>> grouped;
   auto pos_1 = double_array_;
+  auto close0 = dr_.Values<double>("close_t", di);
+  auto close_1 = dr_.Values<double>("close_t", di - 1);
   for (auto ii = 0u; ii < num_symbols_; ++ii) {
     pos_1[ii] = pos_[ii];
     pos_[ii] = kNaN;
@@ -164,7 +165,10 @@ void Alpha::Calculate(int di) {
       if (!std::isnan(v)) alpha[ii] = kNaN;
       continue;
     }
+    if (!(close0[ii] > 0) || !(close_1[ii] > 0)) continue;
     if (std::isnan(alpha[ii])) continue;
+    auto ig = groups ? groups[ii] : 0;
+    if (ig < 0) continue;
     if (decay_ > 1) {
       auto nsum = decay_;
       auto sum = decay_ * v;
@@ -180,8 +184,7 @@ void Alpha::Calculate(int di) {
       v = sum / nsum;
     }
     pos_[ii] = v;
-    auto ig = groups ? 0 : groups[ii];
-    if (ig > 0) grouped[ig].push_back(ii);
+    grouped[ig].push_back(ii);
   }
 
   double sum;
@@ -227,8 +230,6 @@ void Alpha::Calculate(int di) {
   auto sh_hld = 0.;
   auto nlong = 0.;
   auto nshort = 0.;
-  auto close0 = dr_.Values<double>("close_t", di);
-  auto close_1 = dr_.Values<double>("close_t", di - 1);
   for (auto ii = 0u; ii < num_symbols_; ++ii) {
     auto& v = pos_[ii];
     if (std::isnan(v)) continue;
@@ -244,8 +245,8 @@ void Alpha::Calculate(int di) {
     }
     sh_hld += std::abs(v) / close0[ii];
   }
-  auto ret = pnl / book_size_;
-  ret_[di] = ret;
+  // In WebSim, return = annualized PnL / half of book size.
+  auto ret = pnl / (book_size_ / 2);
 
   auto tvr = 0.;
   auto ntrade = 0;
@@ -258,20 +259,25 @@ void Alpha::Calculate(int di) {
     auto x = std::abs(v - v_1);
     tvr += x;
     ntrade++;
-    sh_trd += x / close0[ii];
+    auto px = close0[ii];
+    if (px > 0) sh_trd += x / close0[ii];
   }
   tvr /= book_size_ * 2;
-  tvr_[di] = tvr;
-  os_ << std::setprecision(15) << date(di) << ',' << pnl << ',' << ret << ','
-      << tvr << ',' << long_pos << ',' << short_pos << ',' << sh_hld << ','
-      << sh_trd << ',' << nlong << ',' << nshort << ',' << ntrade << '\n';
+  auto& st = stats_[di];
+  st.ret = ret;
+  st.tvr = tvr;
+  st.date = date(di);
+  st.long_pos = long_pos;
+  st.short_pos = short_pos;
+  os_ << std::setprecision(15) << st.date << ',' << pnl << ',' << ret << ','
+      << tvr << ',' << long_pos << ',' << short_pos << ',' << round(sh_hld)
+      << ',' << round(sh_trd) << ',' << nlong << ',' << nshort << ',' << ntrade
+      << '\n';
 }
 
-typedef std::vector<std::tuple<int, double, double>> RetTuples;
-
-static void Report(const std::string& year, const RetTuples& rets,
-                   std::ostream& os) {
-  if (rets.empty()) return;
+static void Report(const std::string& year,
+                   const std::vector<Alpha::Stats>& sts, std::ostream& os) {
+  if (sts.empty()) return;
   auto dd_reset = true;
   auto dd_sum = 0.;
   auto dd_start = 0;
@@ -281,11 +287,13 @@ static void Report(const std::string& year, const RetTuples& rets,
   auto tvr = 0.;
   auto ret_sum = 0.;
   auto ret_sum2 = 0.;
-  for (auto& t : rets) {
-    auto ret = std::get<1>(t);
+  auto long_pos = 0.;
+  auto short_pos = 0.;
+  for (auto& t : sts) {
+    auto ret = t.ret;
     ret_sum2 += ret * ret;
     ret_sum += ret;
-    auto date = std::get<0>(t);
+    auto date = t.date;
     if (dd_reset) {
       dd_start = date;
       dd_reset = false;
@@ -301,46 +309,52 @@ static void Report(const std::string& year, const RetTuples& rets,
       dd_start_max = dd_start;
       dd_end_max = date;
     }
-    tvr += std::get<2>(t);
+    tvr += t.tvr;
+    long_pos += t.long_pos;
+    short_pos += t.short_pos;
   }
 
   auto stddev = 0.;
   auto ir = 0.;
-  auto d = rets.size();
+  auto d = sts.size();
   auto avg = ret_sum / d;
-  if (d > 1) stddev = sqrt(1 / (d - 1) * (ret_sum2 - ret_sum * ret_sum / d));
+  if (d > 1) stddev = sqrt(1. / (d - 1) * (ret_sum2 - ret_sum * ret_sum / d));
   if (stddev > 0) ir = avg / stddev;
   tvr /= d;
-  auto fitness = ir / tvr;
-  os << year << ',' << ir << ',' << dd_sum_max << ',' << dd_start_max << ','
-     << dd_end_max << ',' << tvr << ',' << fitness << '\n';
+  ir *= sqrt(250);
+  auto sharp = ir * sqrt(252);
+  auto ret = ret_sum / d * 252;
+  auto fitness = sharp * sqrt(std::abs(ret) / tvr);
+  os << year << ',' << ret << ',' << ir << ',' << dd_sum_max << ','
+     << dd_start_max << ',' << dd_end_max << ',' << tvr << ',' << (long_pos / d)
+     << ',' << (short_pos / d) << ',' << (long_pos / short_pos) << ','
+     << fitness << '\n';
 }
 
 void Alpha::Report() {
-  RetTuples rets;
-  std::map<int, RetTuples> yearly;
+  std::vector<Stats> sts;
+  std::map<int, std::vector<Stats>> yearly;
   for (auto di = 0u; di < num_dates_; ++di) {
-    auto v = ret_[di];
-    if (std::isnan(v)) continue;
+    auto& st = stats_[di];
+    if (std::isnan(st.ret)) continue;
     auto d = date(di);
-    auto tvr = tvr_[di];
-    rets.emplace_back(d, v, tvr);
-    yearly[d / 10000].emplace_back(d, v, tvr);
+    sts.push_back(st);
+    yearly[d / 10000].push_back(st);
   }
   os_.close();
   auto path = kStorePath / name();
-  LOG_INFO("Alpha: dump daily results: '" << (path / "daily.csv") << "'");
+  LOG_INFO("Alpha: dump daily results: " << (path / "daily.csv"));
   path = path / "perf.csv";
   os_.open(path.string().c_str());
-  os_ << "date,IR,dd,dd_start,dd_end,tvr,fitness\n";
+  os_ << "date,ret,ir,dd,dd_start,dd_end,tvr,long,short,long/short,fitness\n";
   for (auto& pair : yearly)
     openalpha::Report(std::to_string(pair.first), pair.second, os_);
-  openalpha::Report("", rets, os_);
+  openalpha::Report("", sts, os_);
   os_.close();
   try {
     LOG_INFO(
-        "Alpha: dump performance report: '"
-        << path << "'\n"
+        "Alpha: dump performance report: "
+        << path << "\n"
         << bp::extract<const char*>(bp::str(bp::import("pyarrow.csv")
                                                 .attr("read_csv")(path.string())
                                                 .attr("to_pandas")())));

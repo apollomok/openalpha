@@ -19,5 +19,5 @@ def write_array(fn, array):
   writer.write_table(table)
   writer.close()
 
-
-main()
+if __name__ == '__main__':
+  main()

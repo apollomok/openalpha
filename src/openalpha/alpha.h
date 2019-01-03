@@ -34,6 +34,14 @@ class Alpha {
   DataRegistry& dr() { return dr_; }
   virtual void Generate(int di, double* alpha) = 0;
 
+  struct Stats {
+    int date = 0;
+    double ret = kNaN;
+    double tvr = kNaN;
+    double long_pos = kNaN;
+    double short_pos = kNaN;
+  };
+
  private:
   void UpdateValid(int di);
   void Calculate(int di);
@@ -57,8 +65,7 @@ class Alpha {
   std::vector<int64_t> int_array_;
   std::vector<double> double_array_;
   std::vector<double> pos_;
-  std::vector<double> ret_;
-  std::vector<double> tvr_;
+  std::vector<Stats> stats_;
   const int64_t* date_ = nullptr;
   std::ofstream os_;
   friend class AlphaRegistry;
