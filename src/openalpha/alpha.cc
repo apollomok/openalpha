@@ -18,13 +18,13 @@ Alpha* Alpha::Initialize(const std::string& name, ParamMap&& params) {
   auto n = num_dates_ * num_symbols_;
   auto raw_alpha = new double[n];  // memory leak
   auto raw_valid = new bool[n];    // memory leak
-  for (auto i = 0lu; i < n; ++i) {
+  for (auto i = 0; i < n; ++i) {
     raw_alpha[i] = kNaN;
     raw_valid[i] = false;
   }
   alpha_ = new double*[num_dates_];
   valid_ = new bool*[num_dates_];
-  for (auto i = 0lu; i < num_dates_; ++i) {
+  for (auto i = 0; i < num_dates_; ++i) {
     alpha_[i] = raw_alpha + i * num_symbols_;
     valid_[i] = raw_valid + i * num_symbols_;
   }
@@ -156,16 +156,12 @@ void Alpha::Calculate(int di) {
   std::map<int64_t, std::vector<int>> grouped;
   auto pos_1 = double_array_;
   auto close0 = dr_.Values<double>("close_t", di);
-  auto close_1 = dr_.Values<double>("close_t", di - 1);
-  for (auto ii = 0u; ii < num_symbols_; ++ii) {
+  auto close1 = dr_.Values<double>("close_t", di + 1);
+  for (auto ii = 0; ii < num_symbols_; ++ii) {
     pos_1[ii] = pos_[ii];
     pos_[ii] = kNaN;
     auto v = alpha[ii];
-    if (!valid[ii]) {
-      if (!std::isnan(v)) alpha[ii] = kNaN;
-      continue;
-    }
-    if (!(close0[ii] > 0) || !(close_1[ii] > 0)) continue;
+    if (!valid[ii]) continue;
     if (std::isnan(alpha[ii])) continue;
     auto ig = groups ? groups[ii] : 0;
     if (ig < 0) continue;
@@ -230,11 +226,13 @@ void Alpha::Calculate(int di) {
   auto sh_hld = 0.;
   auto nlong = 0.;
   auto nshort = 0.;
-  for (auto ii = 0u; ii < num_symbols_; ++ii) {
+  for (auto ii = 0; ii < num_symbols_; ++ii) {
     auto& v = pos_[ii];
     if (std::isnan(v)) continue;
     v = std::round(v / sum * book_size_);
-    auto ret = close0[ii] / close_1[ii] - 1;
+    auto px0 = close0[ii];
+    auto px1 = close1[ii];
+    auto ret = !(px0 > 0) || !(px1 > 0) ? 0 : px1 / px0 - 1;
     pnl += v * ret;
     if (v > 0) {
       long_pos += v;
@@ -251,7 +249,7 @@ void Alpha::Calculate(int di) {
   auto tvr = 0.;
   auto ntrade = 0;
   auto sh_trd = 0.;
-  for (auto ii = 0u; ii < num_symbols_; ++ii) {
+  for (auto ii = 0; ii < num_symbols_; ++ii) {
     auto v = pos_[ii];
     if (std::isnan(v)) v = 0;
     auto v_1 = pos_1[ii];
@@ -260,7 +258,7 @@ void Alpha::Calculate(int di) {
     tvr += x;
     ntrade++;
     auto px = close0[ii];
-    if (px > 0) sh_trd += x / close0[ii];
+    if (px > 0) sh_trd += x / px;
   }
   tvr /= book_size_ * 2;
   auto& st = stats_[di];
@@ -334,7 +332,7 @@ static void Report(const std::string& year,
 void Alpha::Report() {
   std::vector<Stats> sts;
   std::map<int, std::vector<Stats>> yearly;
-  for (auto di = 0u; di < num_dates_; ++di) {
+  for (auto di = 0; di < num_dates_; ++di) {
     auto& st = stats_[di];
     if (std::isnan(st.ret)) continue;
     auto d = date(di);
@@ -378,7 +376,7 @@ void PyAlpha::Generate(int di, double* alpha) {
 
 void AlphaRegistry::Run() {
   auto num_dates = dr_.GetData("date")->num_rows();
-  for (auto i = 1; i < num_dates; ++i) {
+  for (auto i = 0; i < num_dates - 1; ++i) {
     for (auto& pair : alphas_) {
       auto alpha = pair.second;
       if (i < alpha->lookback_days_ + alpha->delay_) continue;

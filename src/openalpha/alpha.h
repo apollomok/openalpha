@@ -60,8 +60,8 @@ class Alpha {
   std::string neutralization_ = kNeutralizationBySubIndustry;
   double** alpha_ = nullptr;
   bool** valid_ = nullptr;
-  size_t num_dates_ = 0;
-  size_t num_symbols_ = 0;
+  int num_dates_ = 0;
+  int num_symbols_ = 0;
   std::vector<int64_t> int_array_;
   std::vector<double> double_array_;
   std::vector<double> pos_;
