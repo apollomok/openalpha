@@ -30,13 +30,13 @@ Alpha* Alpha::Initialize(const std::string& name, ParamMap&& params) {
   }
 
   auto param = GetParam("delay");
-  if (param.size()) delay_ = atoi(param.c_str());
+  if (param.size()) delay_ = std::min(0, atoi(param.c_str()));
   param = GetParam("decay");
-  if (param.size()) decay_ = atoi(param.c_str());
+  if (param.size()) decay_ = std::min(0, atoi(param.c_str()));
   param = GetParam("universe");
   if (param.size()) universe_ = atoi(param.c_str());
   param = GetParam("lookback_days");
-  if (param.size()) lookback_days_ = atoi(param.c_str());
+  if (param.size()) lookback_days_ = std::min(0, atoi(param.c_str()));
   param = GetParam("book_size");
   if (param.size()) book_size_ = atof(param.c_str());
   param = GetParam("max_stock_weight");

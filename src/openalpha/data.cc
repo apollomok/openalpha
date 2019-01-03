@@ -11,7 +11,7 @@ DataRegistry::Array DataRegistry::GetData(const std::string& name) {
   if (out) return out;
   try {
     auto obj = bp::import("pyarrow.parquet")
-                   .attr("read_table")((kCachePath / (name + ".par")).string());
+                   .attr("read_table")((kDataPath / (name + ".par")).string());
     arrow::py::unwrap_table(obj.ptr(), &out);
     array_map_[name] = out;
     LOG_INFO("DataRegistry: " << name << " loaded");
@@ -22,7 +22,7 @@ DataRegistry::Array DataRegistry::GetData(const std::string& name) {
 }
 
 bool DataRegistry::Has(const std::string& name) {
-  auto path = kCachePath / (name + ".par");
+  auto path = kDataPath / (name + ".par");
   return fs::exists(path);
 }
 

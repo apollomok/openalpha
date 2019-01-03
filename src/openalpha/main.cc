@@ -17,7 +17,7 @@ namespace bpo = boost::program_options;
 int main(int argc, char *argv[]) {
   std::string config_file_path;
   std::string log_config_file_path;
-  std::string cache_path;
+  std::string data_path;
   try {
     bpo::options_description config("Configuration");
     config.add_options()("help,h", "produce help message")(
@@ -28,10 +28,10 @@ int main(int argc, char *argv[]) {
                             bpo::value<std::string>(&log_config_file_path)
                                 ->default_value("log.conf"),
                             "log4cxx config file path")(
-        "cache_path,C",
-        bpo::value<std::string>(&cache_path)
-            ->default_value(openalpha::kCachePath.string()),
-        "directory path where cache files are located");
+        "data_path,C",
+        bpo::value<std::string>(&data_path)
+            ->default_value(openalpha::kDataPath.string()),
+        "directory path where data files are located");
 
     bpo::options_description config_file_options;
     config_file_options.add(config);
@@ -66,7 +66,7 @@ int main(int argc, char *argv[]) {
 
   if (!openalpha::fs::exists(openalpha::kStorePath))
     openalpha::fs::create_directory(openalpha::kStorePath);
-  openalpha::kCachePath = cache_path;
+  openalpha::kDataPath = data_path;
   openalpha::Logger::Initialize("openalpha", log_config_file_path);
   openalpha::InitalizePy();
   openalpha::DataRegistry::Instance().Initialize();

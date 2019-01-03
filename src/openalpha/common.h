@@ -11,7 +11,7 @@
 namespace openalpha {
 
 namespace fs = boost::filesystem;
-static inline fs::path kCachePath = fs::path(".") / "cache";
+static inline fs::path kDataPath = fs::path(".") / "data";
 static inline fs::path kStorePath = fs::path(".") / "store";
 static const double kNaN = std::nan("");
 
