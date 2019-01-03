@@ -103,6 +103,12 @@ int main(int argc, char *argv[]) {
           LOG_FATAL("Alpha: failed to load '"
                     << path + "', create() does not return Alpha object");
         }
+        if (alpha->GetVersion() != openalpha::kApiVersion) {
+          LOG_FATAL("Alpah: failed to load '" << path + "': version mismatch, "
+                                              << "got " << alpha->GetVersion()
+                                              << ", expect "
+                                              << openalpha::kApiVersion);
+        }
         ar.Add(alpha->Initialize(section.first, std::move(params)));
       } else {
         LOG_FATAL("Alpha: invalid path file '"

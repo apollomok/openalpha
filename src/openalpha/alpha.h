@@ -14,18 +14,22 @@ inline const std::string kNeutralizationByMarket = "market";
 inline const std::string kNeutralizationBySector = "sector";
 inline const std::string kNeutralizationByIndustry = "industry";
 inline const std::string kNeutralizationBySubIndustry = "subindustry";
+static const char* kApiVersion = "1";
 
 class Alpha {
  public:
   typedef std::unordered_map<std::string, std::string> ParamMap;
   Alpha* Initialize(const std::string& name, ParamMap&& params);
   const std::string& name() const { return name_; }
-  int delay() const { return delay_; }
-  size_t num_dates() const { return num_dates_; }
-  size_t num_symbols() const { return num_symbols_; }
+  auto delay() const { return delay_; }
+  auto num_dates() const { return num_dates_; }
+  auto num_symbols() const { return num_symbols_; }
+  const bool** valid() const { return (const bool**)valid_; }
+  auto date(int di) const { return date_[di]; }
   const std::string& GetParam(const std::string& name) const {
     return FindInMap(params_, name);
   }
+  std::string GetVersion() const { return kApiVersion; }
   const ParamMap& params() const { return params_; }
   DataRegistry& dr() { return dr_; }
   virtual void Generate(int di, double* alpha) = 0;
@@ -33,6 +37,7 @@ class Alpha {
  private:
   void UpdateValid(int di);
   void Calculate(int di);
+  void Report();
 
  private:
   DataRegistry& dr_ = DataRegistry::Instance();
@@ -53,7 +58,9 @@ class Alpha {
   std::vector<double> double_array_;
   std::vector<double> pos_;
   std::vector<double> ret_;
-  std::vector<double> turnover_;
+  std::vector<double> tvr_;
+  const int64_t* date_ = nullptr;
+  std::ofstream os_;
   friend class AlphaRegistry;
   friend class PyAlpha;
 };

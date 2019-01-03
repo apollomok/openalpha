@@ -2,6 +2,7 @@
 
 #include <iomanip>
 #include <map>
+#include <tuple>
 
 #include "logger.h"
 
@@ -54,6 +55,11 @@ Alpha* Alpha::Initialize(const std::string& name, ParamMap&& params) {
                      << lookback_days_ << "\nbook_size=" << book_size_
                      << "\nmax_stock_weight=" << max_stock_weight_
                      << "\nneutralization=" << neutralization_);
+
+  auto path = kStorePath / name_;
+  if (!fs::exists(path)) fs::create_directory(path);
+  os_.open((path / "daily.csv").string().c_str());
+  os_ << "date,pnl,ret,tvr,long,short,sh_hld,sh_trd,nlong,nshort,ntrade\n";
 
   return this;
 }
@@ -119,7 +125,8 @@ Alpha* PyAlpha::Initialize(const std::string& name, ParamMap&& params) {
   double_array_.resize(num_symbols_);
   pos_.resize(num_symbols_, kNaN);
   ret_.resize(num_dates_, kNaN);
-  turnover_.resize(num_dates_, kNaN);
+  tvr_.resize(num_dates_, kNaN);
+  date_ = dr_.Values<int64_t>("date", 0);
 
   return this;
 }
@@ -215,6 +222,11 @@ void Alpha::Calculate(int di) {
   }
 
   auto pnl = 0.;
+  auto long_pos = 0.;
+  auto short_pos = 0.;
+  auto sh_hld = 0.;
+  auto nlong = 0.;
+  auto nshort = 0.;
   auto close0 = dr_.Values<double>("close_t", di);
   auto close_1 = dr_.Values<double>("close_t", di - 1);
   for (auto ii = 0u; ii < num_symbols_; ++ii) {
@@ -223,18 +235,118 @@ void Alpha::Calculate(int di) {
     v = std::round(v / sum * book_size_);
     auto ret = close0[ii] / close_1[ii] - 1;
     pnl += v * ret;
+    if (v > 0) {
+      long_pos += v;
+      nlong++;
+    } else if (v < 0) {
+      short_pos -= v;
+      nshort++;
+    }
+    sh_hld += std::abs(v) / close0[ii];
   }
-  ret_[di] = pnl / book_size_;
+  auto ret = pnl / book_size_;
+  ret_[di] = ret;
 
-  auto turnover = 0.;
+  auto tvr = 0.;
+  auto ntrade = 0;
+  auto sh_trd = 0.;
   for (auto ii = 0u; ii < num_symbols_; ++ii) {
     auto v = pos_[ii];
     if (std::isnan(v)) v = 0;
     auto v_1 = pos_1[ii];
     if (std::isnan(v_1)) v_1 = 0;
-    turnover += v - v_1;
+    auto x = std::abs(v - v_1);
+    tvr += x;
+    ntrade++;
+    sh_trd += x / close0[ii];
   }
-  turnover_[di] = turnover / book_size_ / 2;
+  tvr /= book_size_ * 2;
+  tvr_[di] = tvr;
+  os_ << std::setprecision(15) << date(di) << ',' << pnl << ',' << ret << ','
+      << tvr << ',' << long_pos << ',' << short_pos << ',' << sh_hld << ','
+      << sh_trd << ',' << nlong << ',' << nshort << ',' << ntrade << '\n';
+}
+
+typedef std::vector<std::tuple<int, double, double>> RetTuples;
+
+static void Report(const std::string& year, const RetTuples& rets,
+                   std::ostream& os) {
+  if (rets.empty()) return;
+  auto dd_reset = true;
+  auto dd_sum = 0.;
+  auto dd_start = 0;
+  auto dd_sum_max = 0.;
+  auto dd_start_max = 0.;
+  auto dd_end_max = 0;
+  auto tvr = 0.;
+  auto ret_sum = 0.;
+  auto ret_sum2 = 0.;
+  for (auto& t : rets) {
+    auto ret = std::get<1>(t);
+    ret_sum2 += ret * ret;
+    ret_sum += ret;
+    auto date = std::get<0>(t);
+    if (dd_reset) {
+      dd_start = date;
+      dd_reset = false;
+    }
+    dd_sum += ret;
+    if (dd_sum >= 0) {
+      dd_sum = 0;
+      dd_start = date;
+      dd_reset = true;
+    }
+    if (dd_sum < dd_sum_max) {
+      dd_sum_max = dd_sum;
+      dd_start_max = dd_start;
+      dd_end_max = date;
+    }
+    tvr += std::get<2>(t);
+  }
+
+  auto stddev = 0.;
+  auto ir = 0.;
+  auto d = rets.size();
+  auto avg = ret_sum / d;
+  if (d > 1) stddev = sqrt(1 / (d - 1) * (ret_sum2 - ret_sum * ret_sum / d));
+  if (stddev > 0) ir = avg / stddev;
+  tvr /= d;
+  auto fitness = ir / tvr;
+  os << year << ',' << ir << ',' << dd_sum_max << ',' << dd_start_max << ','
+     << dd_end_max << ',' << tvr << ',' << fitness << '\n';
+}
+
+void Alpha::Report() {
+  RetTuples rets;
+  std::map<int, RetTuples> yearly;
+  for (auto di = 0u; di < num_dates_; ++di) {
+    auto v = ret_[di];
+    if (std::isnan(v)) continue;
+    auto d = date(di);
+    auto tvr = tvr_[di];
+    rets.emplace_back(d, v, tvr);
+    yearly[d / 10000].emplace_back(d, v, tvr);
+  }
+  os_.close();
+  auto path = kStorePath / name();
+  LOG_INFO("Alpha: dump daily results: '" << (path / "daily.csv") << "'");
+  path = path / "perf.csv";
+  os_.open(path.string().c_str());
+  os_ << "date,IR,dd,dd_start,dd_end,tvr,fitness\n";
+  for (auto& pair : yearly)
+    openalpha::Report(std::to_string(pair.first), pair.second, os_);
+  openalpha::Report("", rets, os_);
+  os_.close();
+  try {
+    LOG_INFO(
+        "Alpha: dump performance report: '"
+        << path << "'\n"
+        << bp::extract<const char*>(bp::str(bp::import("pyarrow.csv")
+                                                .attr("read_csv")(path.string())
+                                                .attr("to_pandas")())));
+  } catch (const bp::error_already_set& err) {
+    PrintPyError("");
+  }
 }
 
 void PyAlpha::Generate(int di, double* alpha) {
@@ -261,22 +373,7 @@ void AlphaRegistry::Run() {
       alpha->Calculate(i);
     }
   }
-  auto date = dr_.Values<int64_t>("date", 0);
-  for (auto& pair : alphas_) {
-    auto alpha = pair.second;
-    auto path = kStorePath / alpha->name();
-    if (!fs::exists(path)) fs::create_directory(path);
-    std::ofstream os((path / "perf.csv").string().c_str());
-    auto ret = alpha->ret_;
-    auto turnover = alpha->turnover_;
-    os << "date,return,turnover\n";
-    for (auto di = 0; di < num_dates; ++di) {
-      auto v = ret[di];
-      if (std::isnan(v)) continue;
-      os << std::setprecision(15) << date[di] << ',' << v << ',' << turnover[di]
-         << '\n';
-    }
-  }
+  for (auto& pair : alphas_) pair.second->Report();
 }
 
 }  // namespace openalpha
