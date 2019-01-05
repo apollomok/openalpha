@@ -9,9 +9,13 @@
 
 namespace openalpha {
 
+BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(DataRegistry_get_overloads,
+                                       DataRegistry::GetPy, 1, 2)
+
 BOOST_PYTHON_MODULE(openalpha) {
   bp::class_<DataRegistry>("DataRegistry", bp::no_init)
-      .def("get", &DataRegistry::GetPy);
+      .def("get", &DataRegistry::GetPy,
+           DataRegistry_get_overloads(bp::args("name", "retain")));
   bp::scope().attr("dr") = bp::ptr(&DataRegistry::Instance());
 }
 

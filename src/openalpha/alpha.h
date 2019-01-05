@@ -23,8 +23,12 @@ class Alpha {
   const std::string& name() const { return name_; }
   auto delay() const { return delay_; }
   auto num_dates() const { return num_dates_; }
-  auto num_symbols() const { return num_symbols_; }
+  auto nd() const { return num_dates(); }
+  auto num_instruments() const { return num_instruments_; }
+  auto ni() const { return num_instruments(); }
   const bool** valid() const { return (const bool**)valid_; }
+  const bool* valid(int di) const { return valid()[di]; }
+  bool valid(int di, int ii) const { return valid(di)[ii]; }
   auto date(int di) const { return date_[di]; }
   const std::string& GetParam(const std::string& name) const {
     return FindInMap(params_, name);
@@ -61,7 +65,7 @@ class Alpha {
   double** alpha_ = nullptr;
   bool** valid_ = nullptr;
   int num_dates_ = 0;
-  int num_symbols_ = 0;
+  int num_instruments_ = 0;
   std::vector<int64_t> int_array_;
   std::vector<double> double_array_;
   std::vector<double> pos_;

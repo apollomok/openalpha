@@ -6,14 +6,15 @@
 
 namespace openalpha {
 
-DataRegistry::Array DataRegistry::GetData(const std::string& name) {
+DataRegistry::Array DataRegistry::GetData(const std::string& name,
+                                          bool retain) {
   auto out = array_map_[name];
-  if (out) return out;
+  if (retain && out) return out;
   try {
     auto obj = bp::import("pyarrow.parquet")
                    .attr("read_table")((kDataPath / (name + ".par")).string());
     arrow::py::unwrap_table(obj.ptr(), &out);
-    array_map_[name] = out;
+    if (retain) array_map_[name] = out;
     LOG_INFO("DataRegistry: " << name << " loaded");
   } catch (const bp::error_already_set& err) {
     PrintPyError("DataRegistry: failed to load '" + name + "': ", true);
@@ -26,16 +27,16 @@ bool DataRegistry::Has(const std::string& name) {
   return fs::exists(path);
 }
 
-bp::object DataRegistry::GetPy(const std::string& name) {
+bp::object DataRegistry::GetPy(std::string name, bool retain) {
   auto out = py_array_map_[name];
-  if (out) return out;
-  auto array = GetData(name);
+  if (retain && out.ptr()) return out;
+  auto array = GetData(name, retain);
   auto ptr = arrow::py::wrap_table(array);
   out = bp::object(bp::handle<>(bp::borrowed(ptr)))
             .attr("to_pandas")()
             .attr("values");
   assert(Py_REFCNT(ptr) == 1);
-  py_array_map_[name] = out;
+  if (retain) py_array_map_[name] = out;
   return out;
 }
 

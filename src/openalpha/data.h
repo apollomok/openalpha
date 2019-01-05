@@ -19,8 +19,8 @@ class DataRegistry : public Singleton<DataRegistry> {
   typedef std::unordered_map<std::string, bp::object> PyArrayMap;
   void Initialize();
   bool Has(const std::string& name);
-  Array GetData(const std::string& name);
-  bp::object GetPy(const std::string& name);
+  Array GetData(const std::string& name, bool retain = true);
+  bp::object GetPy(std::string name, bool retain = true);
 
   template <typename T>
   Array Assert(const std::string& name) {
@@ -73,6 +73,7 @@ class DataRegistry : public Singleton<DataRegistry> {
 
   template <typename T>
   const T* Values(const std::string& name, int icol) {
+    // https://github.com/apache/arrow/blob/master/cpp/examples/arrow/row-wise-conversion-example.cc
     auto table = Assert<T>(name);
     auto chunk0 = table->column(icol)->data()->chunk(0);
     if constexpr (std::is_same<T, double>::value) {

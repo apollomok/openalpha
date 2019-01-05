@@ -61,7 +61,9 @@ def ffill_file(fn):
 def validate(dir):
   arr = pd.read_parquet(os.path.join(dir, 'close.par')).values
   arr0 = np.copy(arr)
+  arr0[np.isnan(arr0)] = 0
   arr = ffill(arr)
+  arr[np.isnan(arr)] = 0
   out = np.argwhere(arr0 != arr)
   if len(out):
     print('close.par is not forward filled')
