@@ -12,23 +12,15 @@
 
 namespace openalpha {
 
-class DataRegistry : public Singleton<DataRegistry> {
- public:
-  typedef std::shared_ptr<arrow::Table> Array;
-  typedef std::unordered_map<std::string, Array> ArrayMap;
-  typedef std::unordered_map<std::string, bp::object> PyArrayMap;
-  void Initialize();
-  bool Has(const std::string& name);
-  Array GetData(const std::string& name, bool retain = true);
-  bp::object GetPy(std::string name, bool retain = true);
-
+struct ArrowTable : public std::shared_ptr<arrow::Table> {
   template <typename T>
-  Array Assert(const std::string& name) {
-    auto table = GetData(name);
-    if (!table->num_columns()) {
-      LOG_FATAL("DataRegistry: empty data of '" << name << "'");
+  void Assert(int icol) {
+    if (icol >= (*this)->num_columns()) {
+      LOG_FATAL("DataRegistry: column index "
+                << icol << " out of range " << (*this)->num_columns() << " of '"
+                << name << "'");
     }
-    auto type = table->column(0)->type();
+    auto type = (*this)->column(icol)->type();
     if (!type) {
       LOG_FATAL("DataRegistry: empty data type of '"
                 << name << "', expected "
@@ -67,15 +59,22 @@ class DataRegistry : public Singleton<DataRegistry> {
                 << type->name() << "' of '" << name << "', expected '"
                 << boost::typeindex::type_id<T>().pretty_name() << "'");
     }
-
-    return table;
   }
 
   template <typename T>
-  const T* Values(const std::string& name, int icol) {
+  const T* Values(int icol) {
     // https://github.com/apache/arrow/blob/master/cpp/examples/arrow/row-wise-conversion-example.cc
-    auto table = Assert<T>(name);
-    auto chunk0 = table->column(icol)->data()->chunk(0);
+    Assert<T>(icol);
+    if ((*this)->column(icol)->data()->num_chunks() > 1 ||
+        (*this)->column(icol)->data()->null_count() > 0) {
+      // can not return null value columns as raw because those null values are
+      // not initialized. can not use chunk->IsNull(i) to check
+      LOG_FATAL("DataRegistry: can not get a row column of '"
+                << name
+                << "' as a raw pointer, because it has more than 1 chunks or "
+                   "has null value");
+    }
+    auto chunk0 = (*this)->column(icol)->data()->chunk(0);
     if constexpr (std::is_same<T, double>::value) {
       return std::static_pointer_cast<arrow::DoubleArray>(chunk0)->raw_values();
     } else if constexpr (std::is_same<T, float>::value) {
@@ -96,16 +95,80 @@ class DataRegistry : public Singleton<DataRegistry> {
       return std::static_pointer_cast<arrow::Int8Array>(chunk0)->raw_values();
     } else if constexpr (std::is_same<T, uint8_t>::value) {
       return std::static_pointer_cast<arrow::UInt8Array>(chunk0)->raw_values();
-    } else if constexpr (std::is_same<T, bool>::value) {
-      return std::static_pointer_cast<arrow::BooleanArray>(chunk0)
-          ->raw_values();
-    } else if constexpr (std::is_same<T, std::string>::value) {
-      return std::static_pointer_cast<arrow::StringArray>(chunk0)->raw_values();
     } else {
       return nullptr;
       assert(false);
     }
   }
+
+  template <typename T>
+  T Values(int icol, int irow) {
+    auto col = (*this)->column(icol)->data();
+    if (irow >= (*this)->num_rows()) {
+      LOG_FATAL("DataRegistry: row index " << irow << " out of range "
+                                           << (*this)->num_rows() << " of '"
+                                           << name << "'");
+    }
+    auto chunk = col->chunk(0);
+    auto n = 0;
+    while (irow >= chunk->length()) {
+      irow -= chunk->length();
+      chunk = col->chunk(++n);
+    }
+    if constexpr (std::is_same<T, double>::value) {
+      if (chunk->IsNull(icol)) return kNaN;
+      return std::static_pointer_cast<arrow::DoubleArray>(chunk)->Value(icol);
+    } else if constexpr (std::is_same<T, float>::value) {
+      if (chunk->IsNull(icol)) return kNaN;
+      return std::static_pointer_cast<arrow::FloatArray>(chunk)->Value(irow);
+    } else if constexpr (std::is_same<T, int64_t>::value) {
+      if (chunk->IsNull(icol)) return T{};
+      return std::static_pointer_cast<arrow::Int64Array>(chunk)->Value(irow);
+    } else if constexpr (std::is_same<T, uint64_t>::value) {
+      if (chunk->IsNull(icol)) return T{};
+      return std::static_pointer_cast<arrow::UInt64Array>(chunk)->Value(irow);
+    } else if constexpr (std::is_same<T, int32_t>::value) {
+      if (chunk->IsNull(icol)) return T{};
+      return std::static_pointer_cast<arrow::Int32Array>(chunk)->Value(irow);
+    } else if constexpr (std::is_same<T, uint32_t>::value) {
+      if (chunk->IsNull(icol)) return T{};
+      return std::static_pointer_cast<arrow::UInt32Array>(chunk)->Value(irow);
+    } else if constexpr (std::is_same<T, int16_t>::value) {
+      if (chunk->IsNull(icol)) return T{};
+      return std::static_pointer_cast<arrow::Int16Array>(chunk)->Value(irow);
+    } else if constexpr (std::is_same<T, uint16_t>::value) {
+      if (chunk->IsNull(icol)) return T{};
+      return std::static_pointer_cast<arrow::UInt16Array>(chunk)->Value(irow);
+    } else if constexpr (std::is_same<T, int8_t>::value) {
+      if (chunk->IsNull(icol)) return T{};
+      return std::static_pointer_cast<arrow::Int8Array>(chunk)->Value(irow);
+    } else if constexpr (std::is_same<T, uint8_t>::value) {
+      if (chunk->IsNull(icol)) return T{};
+      return std::static_pointer_cast<arrow::UInt8Array>(chunk)->Value(irow);
+    } else if constexpr (std::is_same<T, bool>::value) {
+      if (chunk->IsNull(icol)) return T{};
+      return std::static_pointer_cast<arrow::BooleanArray>(chunk)->Value(irow);
+    } else if constexpr (std::is_same<T, std::string>::value) {
+      if (chunk->IsNull(icol)) return T{};
+      return std::static_pointer_cast<arrow::StringArray>(chunk)->GetString(
+          irow);
+    } else {
+      return T{};
+      assert(false);
+    }
+  }
+
+  std::string name;
+};
+
+class DataRegistry : public Singleton<DataRegistry> {
+ public:
+  typedef std::unordered_map<std::string, ArrowTable> ArrayMap;
+  typedef std::unordered_map<std::string, bp::object> PyArrayMap;
+  void Initialize();
+  bool Has(const std::string& name);
+  ArrowTable GetData(const std::string& name, bool retain = true);
+  bp::object GetDataPy(std::string name, bool retain = true);
 
  private:
   ArrayMap array_map_;

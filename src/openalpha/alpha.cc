@@ -132,13 +132,13 @@ Alpha* PyAlpha::Initialize(const std::string& name, ParamMap&& params) {
   double_array_.resize(num_instruments_);
   pos_.resize(num_instruments_, kNaN);
   stats_.resize(num_dates_);
-  date_ = dr_.Values<int64_t>("date", 0);
+  date_ = dr_.GetData("date").Values<int64_t>(0);
 
   return this;
 }
 
 void Alpha::UpdateValid(int di) {
-  auto values = dr_.Values<double>("adv60_t", di - delay_);
+  auto values = dr_.GetData("adv60_t").Values<double>(di - delay_);
   for (auto i = 0u; i < int_array_.size(); ++i) int_array_[i] = i;
   std::sort(int_array_.begin(), int_array_.end(),
             [&values](auto i, auto j) { return values[i] < values[j]; });
@@ -151,15 +151,17 @@ void Alpha::UpdateValid(int di) {
 }
 
 void Alpha::Calculate(int di) {
-  auto groups = neutralization_ != kNeutralizationByMarket
-                    ? dr_.Values<int64_t>(neutralization_ + "_t", di - delay_)
-                    : nullptr;
+  auto groups =
+      neutralization_ != kNeutralizationByMarket
+          ? dr_.GetData(neutralization_ + "_t").Values<int64_t>(di - delay_)
+          : nullptr;
   auto alpha = alpha_[di];
   auto valid = valid_[di];
   std::map<int64_t, std::vector<int>> grouped;
   auto pos_1 = double_array_;
-  auto close0 = dr_.Values<double>("close_t", di);
-  auto close1 = dr_.Values<double>("close_t", di + 1);
+  auto close = dr_.GetData("close_t");
+  auto close0 = close.Values<double>(di);
+  auto close1 = close.Values<double>(di + 1);
   for (auto ii = 0; ii < num_instruments_; ++ii) {
     pos_1[ii] = pos_[ii];
     pos_[ii] = kNaN;
@@ -244,7 +246,7 @@ void Alpha::Calculate(int di) {
       short_pos -= v;
       nshort++;
     }
-    sh_hld += std::abs(v) / close0[ii];
+    if (px0 > 0) sh_hld += std::abs(v) / px0;
   }
   // In WebSim, return = annualized PnL / half of book size.
   auto ret = pnl / (book_size_ / 2);
