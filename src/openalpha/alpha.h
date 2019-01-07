@@ -41,9 +41,12 @@ class Alpha {
   struct Stats {
     int date = 0;
     double ret = kNaN;
+    double pnl = kNaN;
     double tvr = kNaN;
     double long_pos = kNaN;
     double short_pos = kNaN;
+    long nlong = 0;
+    long nshort = 0;
   };
 
  private:

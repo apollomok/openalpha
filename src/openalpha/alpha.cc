@@ -115,7 +115,7 @@ Alpha* PyAlpha::Initialize(const std::string& name, ParamMap&& params) {
     PyModule_AddObject(module.ptr(), "valid", np_valid.ptr());
     PyModule_AddIntConstant(module.ptr(), "delay", delay_);
     PyModule_AddIntConstant(module.ptr(), "decay", decay_);
-    generate_func_ = GetCallable(module, "generate");
+    generate_func_ = GetCallable(module, "Generate");
     if (!generate_func_) {
       LOG_FATAL("Alpha: 'generate' function not defined in '" + path.string() +
                 "'");
@@ -142,7 +142,7 @@ void Alpha::UpdateValid(int di) {
   for (auto i = 0u; i < int_array_.size(); ++i) int_array_[i] = i;
   std::sort(int_array_.begin(), int_array_.end(),
             [&values](auto i, auto j) { return values[i] < values[j]; });
-  auto valid = valid_[di];
+  auto valid = valid_[di - delay_];
   auto n = 0;
   for (auto it = int_array_.rbegin(); it != int_array_.rend() && n < universe_;
        ++it, ++n) {
@@ -156,7 +156,7 @@ void Alpha::Calculate(int di) {
           ? dr_.GetData(neutralization_ + "_t").Values<int64_t>(di - delay_)
           : nullptr;
   auto alpha = alpha_[di];
-  auto valid = valid_[di];
+  auto valid = valid_[di - delay_];
   std::map<int64_t, std::vector<int>> grouped;
   auto pos_1 = double_array_;
   auto close = dr_.GetData("close_t");
@@ -237,7 +237,7 @@ void Alpha::Calculate(int di) {
     v = std::round(v / sum * book_size_);
     auto px0 = close0[ii];
     auto px1 = close1[ii];
-    auto ret = !(px0 > 0) || !(px1 > 0) ? 0 : px1 / px0 - 1;
+    auto ret = !(px0 > 0) || !(px1 > 0) ? 0 : (px1 / px0 - 1);
     pnl += v * ret;
     if (v > 0) {
       long_pos += v;
@@ -261,7 +261,7 @@ void Alpha::Calculate(int di) {
     if (std::isnan(v_1)) v_1 = 0;
     auto x = std::abs(v - v_1);
     tvr += x;
-    ntrade++;
+    if (x != 0) ntrade++;
     auto px = close0[ii];
     if (px > 0) sh_trd += x / px;
   }
@@ -272,6 +272,9 @@ void Alpha::Calculate(int di) {
   st.date = date(di);
   st.long_pos = long_pos;
   st.short_pos = short_pos;
+  st.nlong = nlong;
+  st.nshort = nshort;
+  st.pnl = pnl;
   os_ << std::setprecision(15) << st.date << ',' << pnl << ',' << ret << ','
       << tvr << ',' << long_pos << ',' << short_pos << ',' << round(sh_hld)
       << ',' << round(sh_trd) << ',' << nlong << ',' << nshort << ',' << ntrade
@@ -292,6 +295,9 @@ static void Report(const std::string& year,
   auto ret_sum2 = 0.;
   auto long_pos = 0.;
   auto short_pos = 0.;
+  auto nlong = 0l;
+  auto nshort = 0l;
+  auto pnl = 0.;
   for (auto& t : sts) {
     auto ret = t.ret;
     ret_sum2 += ret * ret;
@@ -315,6 +321,9 @@ static void Report(const std::string& year,
     tvr += t.tvr;
     long_pos += t.long_pos;
     short_pos += t.short_pos;
+    nlong += t.nlong;
+    nshort += t.nshort;
+    pnl += t.pnl;
   }
 
   auto stddev = 0.;
@@ -324,14 +333,13 @@ static void Report(const std::string& year,
   if (d > 1) stddev = sqrt(1. / (d - 1) * (ret_sum2 - ret_sum * ret_sum / d));
   if (stddev > 0) ir = avg / stddev;
   tvr /= d;
-  ir *= sqrt(250);
   auto sharp = ir * sqrt(252);
   auto ret = ret_sum / d * 252;
   auto fitness = sharp * sqrt(std::abs(ret) / tvr);
-  os << year << ',' << ret << ',' << ir << ',' << dd_sum_max << ','
-     << dd_start_max << ',' << dd_end_max << ',' << tvr << ',' << (long_pos / d)
-     << ',' << (short_pos / d) << ',' << (long_pos / short_pos) << ','
-     << fitness << '\n';
+  os << year << ',' << pnl << ',' << ret << ',' << ir << ',' << dd_sum_max
+     << ',' << dd_start_max << ',' << dd_end_max << ',' << tvr << ','
+     << (long_pos / d) << ',' << (short_pos / d) << ',' << (nlong / d) << ','
+     << (nshort / d) << ',' << fitness << '\n';
 }
 
 void Alpha::Report() {
@@ -349,10 +357,13 @@ void Alpha::Report() {
   LOG_INFO("Alpha: dump daily results: " << (path / "daily.csv"));
   path = path / "perf.csv";
   os_.open(path.string().c_str());
-  os_ << "date,ret,ir,dd,dd_start,dd_end,tvr,long,short,long/short,fitness\n";
+  os_ << "date,pnl,ret,ir,dd,dd_start,dd_end,tvr,long,short,"
+         "nlong,nshort,fitness\n";
   for (auto& pair : yearly)
     openalpha::Report(std::to_string(pair.first), pair.second, os_);
-  openalpha::Report("", sts, os_);
+  openalpha::Report(std::to_string(yearly.begin()->first) + "-" +
+                        std::to_string(yearly.rbegin()->first),
+                    sts, os_);
   os_.close();
   try {
     LOG_INFO(

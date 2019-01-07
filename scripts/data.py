@@ -10,7 +10,9 @@ import os
 
 
 def main():
-  actions = ['ffill', 'validate', 'transpose', 'symbol', 'date']
+  actions = [
+      'ffill', 'validate', 'transpose', 'symbol', 'nan2zero', 'zero2nan', 'date'
+  ]
   parser = OptionParser(
       usage='usage: %prog [options] filename', version='%prog 1.0')
   parser.add_option(
@@ -47,6 +49,14 @@ def main():
     if action == 'ffill': ffill_file(fn)
     elif action == 'validate': validate(fn)
     elif action == 'transpose': transpose_file(fn)
+    elif action == 'nan2zero':
+      arr = pd.read_parquet(fn).values
+      arr[np.isnan(arr)] = 0
+      write_array(fn, arr)
+    elif action == 'zero2nan':
+      arr = pd.read_parquet(fn).values
+      arr[arr == 0] = np.nan
+      write_array(fn, arr)
 
 
 def transpose_file(fn):

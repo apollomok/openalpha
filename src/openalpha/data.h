@@ -65,36 +65,37 @@ struct ArrowTable : public std::shared_ptr<arrow::Table> {
   const T* Values(int icol) {
     // https://github.com/apache/arrow/blob/master/cpp/examples/arrow/row-wise-conversion-example.cc
     Assert<T>(icol);
-    if ((*this)->column(icol)->data()->num_chunks() > 1 ||
-        (*this)->column(icol)->data()->null_count() > 0) {
+    auto data = (*this)->column(icol)->data();
+    if (data->num_chunks() > 1 || data->null_count() > 0) {
       // can not return null value columns as raw because those null values are
       // not initialized. can not use chunk->IsNull(i) to check
-      LOG_FATAL("DataRegistry: can not get a row column of '"
-                << name
-                << "' as a raw pointer, because it has more than 1 chunks or "
-                   "has null value");
+      LOG_FATAL("DataRegistry: can not get #"
+                << icol << " column of '" << name
+                << "' as a raw pointer, because it has "
+                << (data->num_chunks() > 1 ? "more than 1 chunks"
+                                           : "has null value"));
     }
-    auto chunk0 = (*this)->column(icol)->data()->chunk(0);
+    auto chunk = data->chunk(0);
     if constexpr (std::is_same<T, double>::value) {
-      return std::static_pointer_cast<arrow::DoubleArray>(chunk0)->raw_values();
+      return std::static_pointer_cast<arrow::DoubleArray>(chunk)->raw_values();
     } else if constexpr (std::is_same<T, float>::value) {
-      return std::static_pointer_cast<arrow::FloatArray>(chunk0)->raw_values();
+      return std::static_pointer_cast<arrow::FloatArray>(chunk)->raw_values();
     } else if constexpr (std::is_same<T, int64_t>::value) {
-      return std::static_pointer_cast<arrow::Int64Array>(chunk0)->raw_values();
+      return std::static_pointer_cast<arrow::Int64Array>(chunk)->raw_values();
     } else if constexpr (std::is_same<T, uint64_t>::value) {
-      return std::static_pointer_cast<arrow::UInt64Array>(chunk0)->raw_values();
+      return std::static_pointer_cast<arrow::UInt64Array>(chunk)->raw_values();
     } else if constexpr (std::is_same<T, int32_t>::value) {
-      return std::static_pointer_cast<arrow::Int32Array>(chunk0)->raw_values();
+      return std::static_pointer_cast<arrow::Int32Array>(chunk)->raw_values();
     } else if constexpr (std::is_same<T, uint32_t>::value) {
-      return std::static_pointer_cast<arrow::UInt32Array>(chunk0)->raw_values();
+      return std::static_pointer_cast<arrow::UInt32Array>(chunk)->raw_values();
     } else if constexpr (std::is_same<T, int16_t>::value) {
-      return std::static_pointer_cast<arrow::Int16Array>(chunk0)->raw_values();
+      return std::static_pointer_cast<arrow::Int16Array>(chunk)->raw_values();
     } else if constexpr (std::is_same<T, uint16_t>::value) {
-      return std::static_pointer_cast<arrow::UInt16Array>(chunk0)->raw_values();
+      return std::static_pointer_cast<arrow::UInt16Array>(chunk)->raw_values();
     } else if constexpr (std::is_same<T, int8_t>::value) {
-      return std::static_pointer_cast<arrow::Int8Array>(chunk0)->raw_values();
+      return std::static_pointer_cast<arrow::Int8Array>(chunk)->raw_values();
     } else if constexpr (std::is_same<T, uint8_t>::value) {
-      return std::static_pointer_cast<arrow::UInt8Array>(chunk0)->raw_values();
+      return std::static_pointer_cast<arrow::UInt8Array>(chunk)->raw_values();
     } else {
       return nullptr;
       assert(false);
@@ -102,7 +103,7 @@ struct ArrowTable : public std::shared_ptr<arrow::Table> {
   }
 
   template <typename T>
-  T Values(int icol, int irow) {
+  T Value(int irow, int icol) {
     auto col = (*this)->column(icol)->data();
     if (irow >= (*this)->num_rows()) {
       LOG_FATAL("DataRegistry: row index " << irow << " out of range "
@@ -116,40 +117,40 @@ struct ArrowTable : public std::shared_ptr<arrow::Table> {
       chunk = col->chunk(++n);
     }
     if constexpr (std::is_same<T, double>::value) {
-      if (chunk->IsNull(icol)) return kNaN;
-      return std::static_pointer_cast<arrow::DoubleArray>(chunk)->Value(icol);
+      if (chunk->IsNull(irow)) return kNaN;
+      return std::static_pointer_cast<arrow::DoubleArray>(chunk)->Value(irow);
     } else if constexpr (std::is_same<T, float>::value) {
-      if (chunk->IsNull(icol)) return kNaN;
+      if (chunk->IsNull(irow)) return kNaN;
       return std::static_pointer_cast<arrow::FloatArray>(chunk)->Value(irow);
     } else if constexpr (std::is_same<T, int64_t>::value) {
-      if (chunk->IsNull(icol)) return T{};
+      if (chunk->IsNull(irow)) return T{};
       return std::static_pointer_cast<arrow::Int64Array>(chunk)->Value(irow);
     } else if constexpr (std::is_same<T, uint64_t>::value) {
-      if (chunk->IsNull(icol)) return T{};
+      if (chunk->IsNull(irow)) return T{};
       return std::static_pointer_cast<arrow::UInt64Array>(chunk)->Value(irow);
     } else if constexpr (std::is_same<T, int32_t>::value) {
-      if (chunk->IsNull(icol)) return T{};
+      if (chunk->IsNull(irow)) return T{};
       return std::static_pointer_cast<arrow::Int32Array>(chunk)->Value(irow);
     } else if constexpr (std::is_same<T, uint32_t>::value) {
-      if (chunk->IsNull(icol)) return T{};
+      if (chunk->IsNull(irow)) return T{};
       return std::static_pointer_cast<arrow::UInt32Array>(chunk)->Value(irow);
     } else if constexpr (std::is_same<T, int16_t>::value) {
-      if (chunk->IsNull(icol)) return T{};
+      if (chunk->IsNull(irow)) return T{};
       return std::static_pointer_cast<arrow::Int16Array>(chunk)->Value(irow);
     } else if constexpr (std::is_same<T, uint16_t>::value) {
-      if (chunk->IsNull(icol)) return T{};
+      if (chunk->IsNull(irow)) return T{};
       return std::static_pointer_cast<arrow::UInt16Array>(chunk)->Value(irow);
     } else if constexpr (std::is_same<T, int8_t>::value) {
-      if (chunk->IsNull(icol)) return T{};
+      if (chunk->IsNull(irow)) return T{};
       return std::static_pointer_cast<arrow::Int8Array>(chunk)->Value(irow);
     } else if constexpr (std::is_same<T, uint8_t>::value) {
-      if (chunk->IsNull(icol)) return T{};
+      if (chunk->IsNull(irow)) return T{};
       return std::static_pointer_cast<arrow::UInt8Array>(chunk)->Value(irow);
     } else if constexpr (std::is_same<T, bool>::value) {
-      if (chunk->IsNull(icol)) return T{};
+      if (chunk->IsNull(irow)) return T{};
       return std::static_pointer_cast<arrow::BooleanArray>(chunk)->Value(irow);
     } else if constexpr (std::is_same<T, std::string>::value) {
-      if (chunk->IsNull(icol)) return T{};
+      if (chunk->IsNull(irow)) return T{};
       return std::static_pointer_cast<arrow::StringArray>(chunk)->GetString(
           irow);
     } else {
