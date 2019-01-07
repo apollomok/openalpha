@@ -45,8 +45,8 @@ class Alpha {
     double tvr = kNaN;
     double long_pos = kNaN;
     double short_pos = kNaN;
-    long nlong = 0;
-    long nshort = 0;
+    int64_t nlong = 0;
+    int64_t nshort = 0;
   };
 
  private:

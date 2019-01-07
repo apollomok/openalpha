@@ -30,13 +30,13 @@ Alpha* Alpha::Initialize(const std::string& name, ParamMap&& params) {
   }
 
   auto param = GetParam("delay");
-  if (param.size()) delay_ = std::min(0, atoi(param.c_str()));
+  if (param.size()) delay_ = std::max(0, atoi(param.c_str()));
   param = GetParam("decay");
-  if (param.size()) decay_ = std::min(0, atoi(param.c_str()));
+  if (param.size()) decay_ = std::max(0, atoi(param.c_str()));
   param = GetParam("universe");
   if (param.size()) universe_ = atoi(param.c_str());
   param = GetParam("lookback_days");
-  if (param.size()) lookback_days_ = std::min(0, atoi(param.c_str()));
+  if (param.size()) lookback_days_ = std::max(0, atoi(param.c_str()));
   param = GetParam("book_size");
   if (param.size()) book_size_ = atof(param.c_str());
   param = GetParam("max_stock_weight");
@@ -369,6 +369,8 @@ void Alpha::Report() {
     LOG_INFO(
         "Alpha: dump performance report: "
         << path << "\n"
+        << sts.begin()->date << "-" << sts.rbegin()->date
+        << " book_size=" << book_size_ << " tvr=trade_volume/2/book_size\n"
         << bp::extract<const char*>(bp::str(bp::import("pyarrow.csv")
                                                 .attr("read_csv")(path.string())
                                                 .attr("to_pandas")())));

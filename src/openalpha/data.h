@@ -159,6 +159,76 @@ struct ArrowTable : public std::shared_ptr<arrow::Table> {
     }
   }
 
+  template <typename T, typename Visitor>
+  void Visit(int irow, int icol, int row_offset, Visitor visitor) {
+    auto col = (*this)->column(icol)->data();
+    int num_rows = (*this)->num_rows();
+    if (irow >= num_rows) {
+      LOG_FATAL("DataRegistry: row index " << irow << " out of range "
+                                           << num_rows << " of '" << name
+                                           << "'");
+    }
+    auto chunk = col->chunk(0);
+    auto n = 0;
+    auto irow_begin = row_offset < 0 ? std::max(0, irow + row_offset) : irow;
+    auto irow_end =
+        row_offset < 0 ? irow + 1 : std::min(irow + row_offset + 1, num_rows);
+    for (auto i = irow_begin; i != irow_end; ++i) {
+      while (i >= chunk->length()) {
+        i -= chunk->length();
+        irow_end -= chunk->length();
+        irow -= chunk->length();
+        chunk = col->chunk(++n);
+      }
+      T v{};
+      if constexpr (std::is_same<T, double>::value) {
+        if (chunk->IsNull(i))
+          v = kNaN;
+        else
+          v = std::static_pointer_cast<arrow::DoubleArray>(chunk)->Value(i);
+      } else if constexpr (std::is_same<T, float>::value) {
+        if (chunk->IsNull(i))
+          v = kNaN;
+        else
+          v = std::static_pointer_cast<arrow::FloatArray>(chunk)->Value(i);
+      } else if constexpr (std::is_same<T, int64_t>::value) {
+        if (!chunk->IsNull(i))
+          v = std::static_pointer_cast<arrow::Int64Array>(chunk)->Value(i);
+      } else if constexpr (std::is_same<T, uint64_t>::value) {
+        if (!chunk->IsNull(i))
+          v = std::static_pointer_cast<arrow::UInt64Array>(chunk)->Value(i);
+      } else if constexpr (std::is_same<T, int32_t>::value) {
+        if (!chunk->IsNull(i))
+          v = std::static_pointer_cast<arrow::Int32Array>(chunk)->Value(i);
+      } else if constexpr (std::is_same<T, uint32_t>::value) {
+        if (!chunk->IsNull(i))
+          v = std::static_pointer_cast<arrow::UInt32Array>(chunk)->Value(i);
+      } else if constexpr (std::is_same<T, int16_t>::value) {
+        if (!chunk->IsNull(i))
+          v = std::static_pointer_cast<arrow::Int16Array>(chunk)->Value(i);
+      } else if constexpr (std::is_same<T, uint16_t>::value) {
+        if (!chunk->IsNull(i))
+          v = std::static_pointer_cast<arrow::UInt16Array>(chunk)->Value(i);
+      } else if constexpr (std::is_same<T, int8_t>::value) {
+        if (!chunk->IsNull(i))
+          v = std::static_pointer_cast<arrow::Int8Array>(chunk)->Value(i);
+      } else if constexpr (std::is_same<T, uint8_t>::value) {
+        if (!chunk->IsNull(i))
+          v = std::static_pointer_cast<arrow::UInt8Array>(chunk)->Value(i);
+      } else if constexpr (std::is_same<T, bool>::value) {
+        if (!chunk->IsNull(i))
+          v = std::static_pointer_cast<arrow::BooleanArray>(chunk)->Value(i);
+      } else if constexpr (std::is_same<T, std::string>::value) {
+        if (!chunk->IsNull(i)) {
+          v = std::static_pointer_cast<arrow::StringArray>(chunk)->GetString(i);
+        }
+      } else {
+        assert(false);
+      }
+      if (visitor(v, i - irow)) break;
+    }
+  }
+
   std::string name;
 };
 
