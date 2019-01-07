@@ -63,7 +63,7 @@ class Alpha {
   int delay_ = 1;
   int decay_ = 4;
   double max_stock_weight_ = 0.1;
-  double book_size_ = 2e6;
+  double book_size_ = 2e7;
   std::string neutralization_ = kNeutralizationBySubIndustry;
   double** alpha_ = nullptr;
   bool** valid_ = nullptr;
