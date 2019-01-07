@@ -307,7 +307,7 @@ static void Report(const std::string& year,
       dd_start = date;
       dd_reset = false;
     }
-    dd_sum += ret;
+    dd_sum += t.pnl;
     if (dd_sum >= 0) {
       dd_sum = 0;
       dd_start = date;
@@ -336,10 +336,10 @@ static void Report(const std::string& year,
   auto sharp = ir * sqrt(252);
   auto ret = ret_sum / d * 252;
   auto fitness = sharp * sqrt(std::abs(ret) / tvr);
-  os << year << ',' << pnl << ',' << ret << ',' << ir << ',' << dd_sum_max
-     << ',' << dd_start_max << ',' << dd_end_max << ',' << tvr << ','
-     << (long_pos / d) << ',' << (short_pos / d) << ',' << (nlong / d) << ','
-     << (nshort / d) << ',' << fitness << '\n';
+  os << year << ',' << pnl << ',' << (ret_sum / d) << ',' << ir << ','
+     << dd_sum_max << ',' << dd_start_max << ',' << dd_end_max << ',' << tvr
+     << ',' << (long_pos / d) << ',' << (short_pos / d) << ',' << (nlong / d)
+     << ',' << (nshort / d) << ',' << fitness << '\n';
 }
 
 void Alpha::Report() {

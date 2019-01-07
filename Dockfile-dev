@@ -14,8 +14,9 @@ RUN apt-get update \
     git \
     wget \
     liblog4cxx-dev \
+    python3-tk \
     libjemalloc-dev bison flex zlib1g-dev libsnappy-dev liblz4-dev libbrotli-dev libzstd-dev rapidjson-dev thrift-compiler autoconf \
-  && pip3 install six numpy pandas cython pytest \
+  && pip3 install six numpy pandas cython pytest matplotlib \
   && wget https://dl.bintray.com/boostorg/release/1.65.1/source/boost_1_65_1.tar.gz \
   && tar xzf boost_1_65_1.tar.gz \
   && cd boost_1_65_1 \
