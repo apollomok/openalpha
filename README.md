@@ -4,7 +4,7 @@ OpenAlpha is an equity statistical arbitrage backtest simulator, use the same AP
 
 ## Installation Prerequisites
 
-This installation is based on Ubuntu 18.04. To use boost numpy for python3, we need to build boost.
+This installation is based on Ubuntu 18.04. We need build boost to support boost numpy of python3. If you have installed boost-dev from apt, please uninstall first.
 
 ```bash
 sudo -i
