@@ -52,7 +52,7 @@ cd ~
 echo "export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:/usr/local/lib" >> .bashrc
 source .bashrc
 git clone https://github.com/opentradesolutions/openalpha
-cd opentrade
+cd openalpha
 make
 ```
 
