@@ -56,8 +56,11 @@ make
 ```
 
 ## Run sample alpha
-```
+It runs [sample.py](https://github.com/opentradesolutions/openalpha/blob/master/sample.py) and [sampe.cc](https://github.com/opentradesolutions/openalpha/blob/master/src/alpha/sample/sample.cc) configured in [openalpha.conf](https://github.com/opentradesolutions/openalpha/blob/master/openalpha.conf).
+```bash
+#download data first
 wget -O data.tgz https://www.dropbox.com/s/wdernq2kz3rgcoo/openalpha.tar.xz?dl=0; tar xJf data.tgz
+
 ./build/release/openalpha/openalpha
 ```
 
