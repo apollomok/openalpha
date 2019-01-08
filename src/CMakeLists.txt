@@ -48,3 +48,4 @@ find_package(Boost REQUIRED COMPONENTS program_options filesystem python3 numpy3
 include_directories({Boost_INCLUDE_DIRS})
 
 add_subdirectory(openalpha)
+add_subdirectory(alpha)

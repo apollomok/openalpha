@@ -29,6 +29,12 @@ Alpha* Alpha::Initialize(const std::string& name, ParamMap&& params) {
     valid_[i] = raw_valid + i * num_instruments_;
   }
 
+  int_array_.resize(num_instruments_);
+  double_array_.resize(num_instruments_);
+  pos_.resize(num_instruments_, kNaN);
+  stats_.resize(num_dates_);
+  date_ = dr_.GetData("date").Values<int64_t>(0);
+
   auto param = GetParam("delay");
   if (param.size()) delay_ = std::max(0, atoi(param.c_str()));
   param = GetParam("decay");
@@ -61,6 +67,7 @@ Alpha* Alpha::Initialize(const std::string& name, ParamMap&& params) {
   os_.open((path / "daily.csv").string().c_str());
   os_ << "date,pnl,ret,tvr,long,short,sh_hld,sh_trd,nlong,nshort,ntrade\n";
 
+  Initialize();
   return this;
 }
 
@@ -127,12 +134,6 @@ Alpha* PyAlpha::Initialize(const std::string& name, ParamMap&& params) {
   bp::import("sys").attr("path").attr("reverse");
   bp::import("sys").attr("path").attr("pop");
   bp::import("sys").attr("path").attr("reverse");
-
-  int_array_.resize(num_instruments_);
-  double_array_.resize(num_instruments_);
-  pos_.resize(num_instruments_, kNaN);
-  stats_.resize(num_dates_);
-  date_ = dr_.GetData("date").Values<int64_t>(0);
 
   return this;
 }
@@ -361,16 +362,24 @@ void Alpha::Report() {
          "nlong,nshort,fitness\n";
   for (auto& pair : yearly)
     openalpha::Report(std::to_string(pair.first), pair.second, os_);
-  openalpha::Report(std::to_string(yearly.begin()->first) + "-" +
-                        std::to_string(yearly.rbegin()->first),
-                    sts, os_);
+  std::string range;
+  if (!yearly.empty()) {
+    range = std::to_string(yearly.begin()->first) + "-" +
+            std::to_string(yearly.rbegin()->first);
+  }
+  openalpha::Report(range, sts, os_);
   os_.close();
+  range = "";
+  if (!sts.empty()) {
+    range = std::to_string(sts.begin()->date) + "-" +
+            std::to_string(sts.rbegin()->date);
+  }
   try {
     LOG_INFO(
         "Alpha: dump performance report: "
         << path << "\n"
-        << sts.begin()->date << "-" << sts.rbegin()->date
-        << " book_size=" << book_size_ << " tvr=trade_volume/2/book_size\n"
+        << range << " book_size=" << book_size_
+        << " tvr=trade_volume/2/book_size\n"
         << bp::extract<const char*>(bp::str(bp::import("pyarrow.csv")
                                                 .attr("read_csv")(path.string())
                                                 .attr("to_pandas")())));

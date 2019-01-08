@@ -5,10 +5,10 @@ debug:
 	mkdir -p build/debug; cd build/debug; cmake ../../src -DCMAKE_BUILD_TYPE=Debug; make ${args}; cd -;
 
 lint:
-	./scripts/cpplint.py src/*/*h src/*/*cc
+	./scripts/cpplint.py src/*/*h src/*/*cc src/alpha/*/*cc
 
 fmt:
-	clang-format -style=Google -i src/*/*h src/*/*cc
+	clang-format -style=Google -i src/*/*h src/*/*cc src/alpha/*/*cc
 
 clean:
 	rm -rf build;

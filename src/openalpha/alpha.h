@@ -36,6 +36,7 @@ class Alpha {
   std::string GetVersion() const { return kApiVersion; }
   const ParamMap& params() const { return params_; }
   DataRegistry& dr() { return dr_; }
+  virtual void Initialize() {}
   virtual void Generate(int di, double* alpha) = 0;
 
   struct Stats {
