@@ -42,12 +42,14 @@ apt-get install -y \
   && cp -rf pyarrow `python3 -c "import site; print(site.getsitepackages()[0])"` \
   && cd ../.. \
   && /bin/rm -rf arrow
-  && echo "export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:/usr/local/lib" >> .bashrc
 ```
 
 ## Build OpenAlpha
 
 ```bash
+cd ~
+echo "export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:/usr/local/lib" >> .bashrc
+source .bashrc
 git clone https://github.com/opentradesolutions/openalpha
 cd opentrade
 make
