@@ -42,6 +42,7 @@ apt-get install -y \
   && cp -rf pyarrow `python3 -c "import site; print(site.getsitepackages()[0])"` \
   && cd ../.. \
   && /bin/rm -rf arrow
+  && exit
 ```
 
 ## Build OpenAlpha
