@@ -1,7 +1,6 @@
 #include "python.h"
 
 #include <Python.h>
-#include <arrow/python/pyarrow.h>
 #include <boost/filesystem.hpp>
 
 #include "data.h"
@@ -79,7 +78,6 @@ void InitalizePy() {
   PyImport_AppendInittab(const_cast<char *>("openalpha"), INIT_MODULE);
   Py_InitializeEx(0);  // no signal registration
   np::initialize();
-  arrow::py::import_pyarrow();
   if (!PyEval_ThreadsInitialized()) PyEval_InitThreads();
   kOpenAlpha = bp::import("openalpha");
   LOG_INFO("Python initialized");

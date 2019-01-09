@@ -1,7 +1,5 @@
 #include "data.h"
 
-#include <boost/type_index.hpp>
-
 #include "python.h"
 
 namespace openalpha {
