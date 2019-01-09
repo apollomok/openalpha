@@ -12,7 +12,7 @@
 
 namespace openalpha {
 
-struct ArrowTable : public std::shared_ptr<arrow::Table> {
+struct Table : public std::shared_ptr<arrow::Table> {
   template <typename T>
   void Assert(int icol) {
     if (icol >= (*this)->num_columns()) {
@@ -234,11 +234,11 @@ struct ArrowTable : public std::shared_ptr<arrow::Table> {
 
 class DataRegistry : public Singleton<DataRegistry> {
  public:
-  typedef std::unordered_map<std::string, ArrowTable> ArrayMap;
+  typedef std::unordered_map<std::string, Table> ArrayMap;
   typedef std::unordered_map<std::string, bp::object> PyArrayMap;
   void Initialize();
   bool Has(const std::string& name);
-  ArrowTable GetData(const std::string& name, bool retain = true);
+  Table GetData(const std::string& name, bool retain = true);
   bp::object GetDataPy(std::string name, bool retain = true);
 
  private:

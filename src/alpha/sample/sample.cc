@@ -32,8 +32,8 @@ struct Sample : public Alpha {
       */
     }
   }
-  ArrowTable close_price;
-  ArrowTable close_price_t;  // transposed version of close_price
+  Table close_price;
+  Table close_price_t;  // transposed version of close_price
 };
 
 }  // namespace openalpha

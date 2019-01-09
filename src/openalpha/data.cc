@@ -6,7 +6,7 @@
 
 namespace openalpha {
 
-ArrowTable DataRegistry::GetData(const std::string& name, bool retain) {
+Table DataRegistry::GetData(const std::string& name, bool retain) {
   auto out = array_map_[name];
   if (retain && out) return out;
   try {
