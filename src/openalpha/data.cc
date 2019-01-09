@@ -1,23 +1,33 @@
 #include "data.h"
 
+#include <H5Cpp.h>
+
 #include "python.h"
 
 namespace openalpha {
+
+static H5std_string kDatasetName("default");
 
 Table DataRegistry::GetData(const std::string& name, bool retain) {
   auto out = array_map_[name];
   if (retain && out) return out;
   try {
-    auto obj = bp::import("pyarrow.parquet")
-                   .attr("read_table")((kDataPath / (name + ".par")).string());
-    std::shared_ptr<arrow::Table> table;
-    arrow::py::unwrap_table(obj.ptr(), &table);
-    out.swap(table);
-    out.name = name;
+    H5::H5File file(H5std_string((kDataPath / (name + ".h5")).string()),
+                    H5F_ACC_RDONLY);
+    auto dataset = file.openDataSet(kDatasetName);
+    auto type_class = dataset.getTypeClass();
+    auto dataspace = dataset.getSpace();
+    auto rank = dataspace.getSimpleExtentNdims();
+    assert(rank == 2);
+    hsize_t dims_out[2];
+    auto ndims = dataspace.getSimpleExtentDims(dims_out, nullptr);
+    if (type_class == H5T_INTEGER) {
+    }
     if (retain) array_map_[name] = out;
     LOG_INFO("DataRegistry: " << name << " loaded");
-  } catch (const bp::error_already_set& err) {
-    PrintPyError("DataRegistry: failed to load '" + name + "': ", true);
+  } catch (H5::Exception& err) {
+    LOG_FATAL(
+        "DataRegistry: failed to load '" + name + "': " << err.getCDetailMsg());
   }
   return out;
 }
@@ -31,11 +41,6 @@ bp::object DataRegistry::GetDataPy(std::string name, bool retain) {
   auto out = py_array_map_[name];
   if (retain && out != bp::object{}) return out;
   auto array = GetData(name, retain);
-  auto ptr = arrow::py::wrap_table(array);
-  out = bp::object(bp::handle<>(bp::borrowed(ptr)))
-            .attr("to_pandas")()
-            .attr("values");
-  assert(Py_REFCNT(ptr) == 1);
   if (retain) py_array_map_[name] = out;
   return out;
 }

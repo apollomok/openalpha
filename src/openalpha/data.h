@@ -70,21 +70,21 @@ class Table {
   template <typename T>
   const T* Values(int irow) {
     Assert<T>();
-    if (icol >= num_rows_) {
-      LOG_FATAL("DataRegistry: row index " << icol << " out of range "
+    if (irow >= num_rows_) {
+      LOG_FATAL("DataRegistry: row index " << irow << " out of range "
                                            << num_rows_ << " of '" << name_
                                            << "'");
     }
-    reinterpret_cast<T*>(data_) + irow* num_columns_;
+    return reinterpret_cast<T*>(data_) + irow * num_columns_;
   }
 
   template <typename T>
   T Value(int irow, int icol) {
     auto row = Values<T>(irow);
     if (icol >= num_columns_) {
-      LOG_FATAL("DataRegistry: column index " << icolumn << " out of range "
-                                              << num_columns_ << " of '"
-                                              << name_ << "'");
+      LOG_FATAL("DataRegistry: column index "
+                << icol << " out of range " << num_columns_ << " of '" << name_
+                << "'");
     }
     return row[icol];
   }
@@ -94,6 +94,10 @@ class Table {
   auto num_columns() const { return num_columns_; }
   auto type() const { return type_; }
   auto type_name() const { return type_name_; }
+  const Table* operator->() const {
+    return this;
+  }  // for compatibilty with Parquet version
+  operator bool() const { return data_; }
 
  private:
   std::string name_;
