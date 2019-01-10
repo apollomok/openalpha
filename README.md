@@ -22,26 +22,15 @@ apt-get install -y \
     wget \
     liblog4cxx-dev \
     python3-tk \
-    libjemalloc-dev bison flex zlib1g-dev libsnappy-dev liblz4-dev libbrotli-dev libzstd-dev rapidjson-dev thrift-compiler autoconf \
-  && pip3 install six numpy pandas cython pytest matplotlib \
+    libhdf5-dev \
+  && pip3 install six numpy pandas cython pytest matplotlib tables h5py \
   && wget https://dl.bintray.com/boostorg/release/1.65.1/source/boost_1_65_1.tar.gz \
   && tar xzf boost_1_65_1.tar.gz \
   && cd boost_1_65_1 \
   && ./bootstrap.sh --prefix=/usr/local --with-python-version=3.6 \
   && ./b2 -j `getconf _NPROCESSORS_ONLN` && ./b2 install \
   && cd .. \
-  && /bin/rm -rf boost* \
-  && git clone https://github.com/apache/arrow.git \
-  && cd arrow/cpp \
-  && mkdir -p release \
-  && cd release \
-  && cmake -DCMAKE_BUILD_TYPE=release -DCMAKE_INSTALL_PREFIX=/usr/local -DARROW_PARQUET=on -DARROW_PYTHON=on -DARROW_PLASMA=on -DARROW_BUILD_TESTS=OFF -DPYTHON_EXECUTABLE:FILEPATH=`which python3` -DPYTHON_LIBRARY=/usr/lib/x86_64-linux-gnu/libpython3.6m.so.1.0 .. \
-  && make -j `getconf _NPROCESSORS_ONLN` && make install \
-  && cd ../../python \
-  && python3 setup.py build_ext --inplace --with-parquet \
-  && cp -rf pyarrow `python3 -c "import site; print(site.getsitepackages()[0])"` \
-  && cd ../.. \
-  && /bin/rm -rf arrow
+  && /bin/rm -rf boost*
   && exit
 ```
 
@@ -61,13 +50,14 @@ It runs [sample.py](https://github.com/opentradesolutions/openalpha/blob/master/
 ```bash
 #download data first
 wget -O data.tgz https://www.dropbox.com/s/wdernq2kz3rgcoo/openalpha.tar.xz?dl=0; tar xJf data.tgz
+./scripts/data.py -a par2h5 data/symbol.par data/date.par data/adv60.par data/close.par data/industrygroup.par data/industry.par data/industry.par data/sector.par data/subindustry.par
 
 ./build/release/openalpha/openalpha
 ```
 
 ## Introduction to data
 
-All data files are stored in parquet file format. Please have a look at [data files](https://www.dropbox.com/s/wdernq2kz3rgcoo/openalpha.tar.xz?dl=0). "data/symbol.par" defines all instruments. "data/dates.par" defines all dates. All the other files are 2D arrays. The row is indexed by date, we call it di in our code. The column is indexed by instrument, we call it ii in our code. The transposed version of parquet file is suffixed with '_t', e.g. transposed 'close.par' file is named with 'close_t.par'. There are some help functions in [scripts/data.py](https://github.com/opentradesolutions/openalpha/blob/master/scripts/data.py) for data handling.
+All data files are stored in hdf5 file format. Please have a look at [data files](https://www.dropbox.com/s/wdernq2kz3rgcoo/openalpha.tar.xz?dl=0). "data/symbol.h5" defines all instruments. "data/dates.h5" defines all dates. All the other files are 2D arrays. The row is indexed by date, we call it di in our code. The column is indexed by instrument, we call it ii in our code. The transposed version of parquet file is suffixed with '_t', e.g. transposed 'close.h5' file is named with 'close_t.h5'. There are some help functions in [scripts/data.py](https://github.com/opentradesolutions/openalpha/blob/master/scripts/data.py) for data handling.
 
 ## Report
 
