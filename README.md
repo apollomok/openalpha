@@ -57,7 +57,7 @@ wget -O data.tgz https://www.dropbox.com/s/wdernq2kz3rgcoo/openalpha.tar.xz?dl=0
 
 ## Introduction to data
 
-All data files are stored in hdf5 file format. Please have a look at [data files](https://www.dropbox.com/s/wdernq2kz3rgcoo/openalpha.tar.xz?dl=0). "data/symbol.h5" defines all instruments. "data/dates.h5" defines all dates. All the other files are 2D arrays. The row is indexed by date, we call it di in our code. The column is indexed by instrument, we call it ii in our code. The transposed version of parquet file is suffixed with '_t', e.g. transposed 'close.h5' file is named with 'close_t.h5'. There are some help functions in [scripts/data.py](https://github.com/opentradesolutions/openalpha/blob/master/scripts/data.py) for data handling.
+All data files are stored in hdf5 file format. Please have a look at [data files](https://www.dropbox.com/s/wdernq2kz3rgcoo/openalpha.tar.xz?dl=0). "data/symbol.h5" defines all instruments. "data/dates.h5" defines all dates. All the other files are 2D arrays. The row is indexed by date, we call it di in our code. The column is indexed by instrument, we call it ii in our code. The transposed version of data file is suffixed with '_t', e.g. transposed 'close.h5' file is named with 'close_t.h5'. There are some help functions in [scripts/data.py](https://github.com/opentradesolutions/openalpha/blob/master/scripts/data.py) for data handling.
 
 ## Report
 
