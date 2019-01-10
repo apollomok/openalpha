@@ -13,8 +13,8 @@ static std::map<std::string, int> kUsedAlphaFileNames;
 Alpha* Alpha::Initialize(const std::string& name, ParamMap&& params) {
   name_ = name;
   params_ = std::move(params);
-  num_dates_ = dr_.GetData("date")->num_rows();
-  num_instruments_ = dr_.GetData("symbol")->num_rows();
+  num_dates_ = dr_.GetData("date").num_rows();
+  num_instruments_ = dr_.GetData("symbol").num_rows();
   auto n = num_dates_ * num_instruments_;
   auto raw_alpha = new double[n];  // memory leak
   auto raw_valid = new bool[n];    // memory leak
@@ -33,7 +33,7 @@ Alpha* Alpha::Initialize(const std::string& name, ParamMap&& params) {
   double_array_.resize(num_instruments_);
   pos_.resize(num_instruments_, kNaN);
   stats_.resize(num_dates_);
-  date_ = dr_.GetData("date").Values<int64_t>(0);
+  date_ = dr_.GetData("date").Data<int64_t>();
 
   auto param = GetParam("delay");
   if (param.size()) delay_ = std::max(0, atoi(param.c_str()));
@@ -139,7 +139,7 @@ Alpha* PyAlpha::Initialize(const std::string& name, ParamMap&& params) {
 }
 
 void Alpha::UpdateValid(int di) {
-  auto values = dr_.GetData("adv60_t").Values<double>(di - delay_);
+  auto values = dr_.GetData("adv60").Row<double>(di - delay_);
   for (auto i = 0u; i < int_array_.size(); ++i) int_array_[i] = i;
   std::sort(int_array_.begin(), int_array_.end(),
             [&values](auto i, auto j) { return values[i] < values[j]; });
@@ -152,17 +152,16 @@ void Alpha::UpdateValid(int di) {
 }
 
 void Alpha::Calculate(int di) {
-  auto groups =
-      neutralization_ != kNeutralizationByMarket
-          ? dr_.GetData(neutralization_ + "_t").Values<int64_t>(di - delay_)
-          : nullptr;
+  auto groups = neutralization_ != kNeutralizationByMarket
+                    ? dr_.GetData(neutralization_).Row<int64_t>(di - delay_)
+                    : nullptr;
   auto alpha = alpha_[di];
   auto valid = valid_[di - delay_];
   std::map<int64_t, std::vector<int>> grouped;
   auto pos_1 = double_array_;
-  auto close = dr_.GetData("close_t");
-  auto close0 = close.Values<double>(di);
-  auto close1 = close.Values<double>(di + 1);
+  auto close = dr_.GetData("close");
+  auto close0 = close.Row<double>(di);
+  auto close1 = close.Row<double>(di + 1);
   for (auto ii = 0; ii < num_instruments_; ++ii) {
     pos_1[ii] = pos_[ii];
     pos_[ii] = kNaN;
@@ -402,7 +401,7 @@ void PyAlpha::Generate(int di, double* alpha) {
 }
 
 void AlphaRegistry::Run() {
-  auto num_dates = dr_.GetData("date")->num_rows();
+  auto num_dates = dr_.GetData("date").num_rows();
   for (auto di = 0; di < num_dates - 1; ++di) {
     for (auto& pair : alphas_) {
       auto alpha = pair.second;

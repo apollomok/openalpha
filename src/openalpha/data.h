@@ -18,14 +18,9 @@ class Table {
     kDouble,
     kFloat,
     kInt64,
-    kUInt64,
     kInt32,
-    kUInt32,
     kInt16,
-    kUInt16,
     kInt8,
-    kUInt8,
-    kBool,
     kString,
   };
 
@@ -39,21 +34,19 @@ class Table {
     } else if constexpr (std::is_same<T, int64_t>::value) {
       res = type_ == kInt64;
     } else if constexpr (std::is_same<T, uint64_t>::value) {
-      res = type_ == kUInt64;
+      res = type_ == kInt64;
     } else if constexpr (std::is_same<T, int32_t>::value) {
       res = type_ == kInt32;
     } else if constexpr (std::is_same<T, uint32_t>::value) {
-      res = type_ == kUInt32;
+      res = type_ == kInt32;
     } else if constexpr (std::is_same<T, int16_t>::value) {
       res = type_ == kInt16;
     } else if constexpr (std::is_same<T, uint16_t>::value) {
-      res = type_ == kUInt16;
+      res = type_ == kInt16;
     } else if constexpr (std::is_same<T, int8_t>::value) {
       res = type_ == kInt8;
     } else if constexpr (std::is_same<T, uint8_t>::value) {
-      res = type_ == kUInt8;
-    } else if constexpr (std::is_same<T, bool>::value) {
-      res = type_ == kBool;
+      res = type_ == kInt8;
     } else if constexpr (std::is_same<T, std::string>::value) {
       res = type_ == kString;
     } else {
@@ -68,19 +61,19 @@ class Table {
   }
 
   template <typename T>
-  const T* Values(int irow) {
+  const T* Row(int irow) {
     Assert<T>();
     if (irow >= num_rows_) {
       LOG_FATAL("DataRegistry: row index " << irow << " out of range "
                                            << num_rows_ << " of '" << name_
                                            << "'");
     }
-    return reinterpret_cast<T*>(data_) + irow * num_columns_;
+    return reinterpret_cast<T*>(data_->ptr) + irow * num_columns_;
   }
 
   template <typename T>
   T Value(int irow, int icol) {
-    auto row = Values<T>(irow);
+    auto row = Row<T>(irow);
     if (icol >= num_columns_) {
       LOG_FATAL("DataRegistry: column index "
                 << icol << " out of range " << num_columns_ << " of '" << name_
@@ -89,15 +82,17 @@ class Table {
     return row[icol];
   }
 
+  template <typename T>
+  const T* Data() const {
+    return reinterpret_cast<T*>(data_->ptr);
+  }
+
   const std::string& name() const { return name_; }
   auto num_rows() const { return num_rows_; }
   auto num_columns() const { return num_columns_; }
   auto type() const { return type_; }
   auto type_name() const { return type_name_; }
-  const Table* operator->() const {
-    return this;
-  }  // for compatibilty with Parquet version
-  operator bool() const { return data_; }
+  operator bool() const { return !!data_; }
 
  private:
   std::string name_;
@@ -105,7 +100,20 @@ class Table {
   int num_columns_;
   Type type_ = kUnknown;
   std::string type_name_;
-  void* data_ = nullptr;
+  struct RawData {
+    virtual ~RawData() {
+      if (ptr) free(ptr);
+    }
+    void* ptr = nullptr;
+  };
+  template <typename T>
+  struct DataTmpl : RawData {
+    ~DataTmpl() {
+      delete[] reinterpret_cast<T*>(ptr);
+      ptr = nullptr;
+    }
+  };
+  std::shared_ptr<RawData> data_;
   friend class DataRegistry;
 };
 

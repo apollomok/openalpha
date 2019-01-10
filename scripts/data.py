@@ -7,11 +7,19 @@ import pyarrow as pa
 import pandas as pd
 from optparse import OptionParser
 import os
+import h5py
 
 
 def main():
   actions = [
-      'ffill', 'validate', 'transpose', 'symbol', 'nan2zero', 'zero2nan', 'date'
+      'ffill',
+      'validate',
+      'transpose',
+      'symbol',
+      'nan2zero',
+      'zero2nan',
+      'date',
+      'par2h5',
   ]
   parser = OptionParser(
       usage='usage: %prog [options] filename', version='%prog 1.0')
@@ -57,6 +65,13 @@ def main():
       arr = pd.read_parquet(fn).values
       arr[arr == 0] = np.nan
       write_array(fn, arr)
+    elif action == 'par2h5':
+      arr = pd.read_parquet(fn).values
+      hf = h5py.File(fn.replace('par', 'h5'), 'w')
+      if arr.dtype == np.object:
+        arr = arr.astype('S')
+      hf.create_dataset('default', data=arr)
+      hf.close()
 
 
 def transpose_file(fn):

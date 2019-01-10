@@ -16,7 +16,7 @@ RUN apt-get update \
     liblog4cxx-dev \
     python3-tk \
     libhdf5-dev \
-  && pip3 install six numpy pandas cython pytest matplotlib tables \
+  && pip3 install six numpy pandas cython pytest matplotlib tables h5py \
   && wget https://dl.bintray.com/boostorg/release/1.65.1/source/boost_1_65_1.tar.gz \
   && tar xzf boost_1_65_1.tar.gz \
   && cd boost_1_65_1 \
