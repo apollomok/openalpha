@@ -71,10 +71,12 @@ All data files are stored in parquet file format. Please have a look at [data fi
 
 ## HDF5 format data file
 
-In most of single-threaded cases, HDF5 data format should be faster than parquet. Please check out HDF5 branch.
+In most of cases, HDF5 data format is faster than parquet. If there is no memory limit issue, Please check out HDF5 branch.
 
 https://github.com/opentradesolutions/openalpha/tree/hdf5
 
+In HDF5 branch, array is row major in memory instead of column major in parquet. So there is C++ api difference, please check out
+sample c++ file, [HDF5](https://github.com/opentradesolutions/openalpha/blob/hdf5/src/alpha/sample/sample.cc) vs [Parquet](https://github.com/opentradesolutions/openalpha/blob/master/src/alpha/sample/sample.cc). Python API are the same.
 ## Report
 
 Openalpha has default report, and dump out daily pnl file. You can also use [scripts/simsummary.py](https://github.com/opentradesolutions/openalpha/blob/master/scripts/simsummary.py) on the daily pnl file to generate more detailed report, plot, and do correlation calculation. Or you can use [ffn](http://pmorissette.github.io/ffn/).
