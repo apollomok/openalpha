@@ -9,8 +9,8 @@ struct Sample : public Alpha {
   }
   void Generate(int di, double* alpha) override {
     di = di - delay();
-    auto close_2 = close_price_t.Values<double>(di - 2);
-    auto close_0 = close_price_t.Values<double>(di);
+    auto close_2 = close_price_t.Column<double>(di - 2);
+    auto close_0 = close_price_t.Column<double>(di);
     for (auto ii = 0; ii < num_instruments(); ++ii) {
       if (!valid(di, ii)) continue;
       double px_2 = close_2[ii];

@@ -15,10 +15,10 @@ namespace openalpha {
 struct Table : public std::shared_ptr<arrow::Table> {
   template <typename T>
   void Assert(int icol) {
-    if (icol >= (*this)->num_columns()) {
+    if (icol >= num_columns()) {
       LOG_FATAL("DataRegistry: column index "
-                << icol << " out of range " << (*this)->num_columns() << " of '"
-                << name << "'");
+                << icol << " out of range " << num_columns() << " of '" << name
+                << "'");
     }
     auto type = (*this)->column(icol)->type();
     if (!type) {
@@ -62,7 +62,7 @@ struct Table : public std::shared_ptr<arrow::Table> {
   }
 
   template <typename T>
-  const T* Values(int icol) {
+  const T* Column(int icol) {
     // https://github.com/apache/arrow/blob/master/cpp/examples/arrow/row-wise-conversion-example.cc
     Assert<T>(icol);
     auto data = (*this)->column(icol)->data();
@@ -105,10 +105,10 @@ struct Table : public std::shared_ptr<arrow::Table> {
   template <typename T>
   T Value(int irow, int icol) {
     auto col = (*this)->column(icol)->data();
-    if (irow >= (*this)->num_rows()) {
+    if (irow >= num_rows()) {
       LOG_FATAL("DataRegistry: row index " << irow << " out of range "
-                                           << (*this)->num_rows() << " of '"
-                                           << name << "'");
+                                           << num_rows() << " of '" << name
+                                           << "'");
     }
     auto chunk = col->chunk(0);
     auto n = 0;
@@ -162,7 +162,7 @@ struct Table : public std::shared_ptr<arrow::Table> {
   template <typename T, typename Visitor>
   void Visit(int irow, int icol, int row_offset, Visitor visitor) {
     auto col = (*this)->column(icol)->data();
-    int num_rows = (*this)->num_rows();
+    int num_rows = this->num_rows();
     if (irow >= num_rows) {
       LOG_FATAL("DataRegistry: row index " << irow << " out of range "
                                            << num_rows << " of '" << name
@@ -228,6 +228,20 @@ struct Table : public std::shared_ptr<arrow::Table> {
       if (visitor(v, i - irow)) break;
     }
   }
+
+  template <typename T>
+  const T* Data() {
+    if (num_columns() != 1) {
+      LOG_FATAL(
+          "DataRegistry: Data function only works for one column table, not "
+          "applicable to '"
+          << name << "'");
+    }
+    return Column<T>(0);
+  }
+  // parquet has extra one index column
+  int num_columns() { return (*this)->num_columns() - 1; }
+  int num_rows() { return (*this)->num_rows(); }
 
   std::string name;
 };
