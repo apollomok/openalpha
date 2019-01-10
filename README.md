@@ -69,9 +69,9 @@ wget -O data.tgz https://www.dropbox.com/s/wdernq2kz3rgcoo/openalpha.tar.xz?dl=0
 
 All data files are stored in parquet file format. Please have a look at [data files](https://www.dropbox.com/s/wdernq2kz3rgcoo/openalpha.tar.xz?dl=0). "data/symbol.par" defines all instruments. "data/dates.par" defines all dates. All the other files are 2D arrays. The row is indexed by date, we call it di in our code. The column is indexed by instrument, we call it ii in our code. The transposed version of parquet file is suffixed with '_t', e.g. transposed 'close.par' file is named with 'close_t.par'. There are some help functions in [scripts/data.py](https://github.com/opentradesolutions/openalpha/blob/master/scripts/data.py) for data handling.
 
-## HFD5 format data file
+## HDF5 format data file
 
-In most of single-threaded cases, HFD5 data format should be faster than parquet. Please check out HFD5 branch.
+In most of single-threaded cases, HDF5 data format should be faster than parquet. Please check out HDF5 branch.
 
 https://github.com/opentradesolutions/openalpha/tree/hdf5
 
