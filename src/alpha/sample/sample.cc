@@ -8,6 +8,8 @@ struct Sample : public Alpha {
     di = di - delay();
     auto close_2 = close_price.Row<double>(di - 2);
     auto close_0 = close_price.Row<double>(di);
+    // https://bisqwit.iki.fi/story/howto/openmp/
+    // #pragma omp parallel for
     for (auto ii = 0; ii < num_instruments(); ++ii) {
       if (!valid(di, ii)) continue;
       double px_2 = close_2[ii];
