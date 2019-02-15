@@ -17,13 +17,13 @@ struct Table : public std::shared_ptr<arrow::Table> {
   void Assert(int icol) {
     if (icol >= num_columns()) {
       LOG_FATAL("DataRegistry: column index "
-                << icol << " out of range " << num_columns() << " of '" << name
+                << icol << " out of range " << num_columns() << " of '" << name_
                 << "'");
     }
     auto type = (*this)->column(icol)->type();
     if (!type) {
       LOG_FATAL("DataRegistry: empty data type of '"
-                << name << "', expected "
+                << name_ << "', expected "
                 << boost::typeindex::type_id<T>().pretty_name());
     }
     bool res;
@@ -56,7 +56,7 @@ struct Table : public std::shared_ptr<arrow::Table> {
     }
     if (!res) {
       LOG_FATAL("DataRegistry: invalid data type '"
-                << type->name() << "' of '" << name << "', expected '"
+                << type->name() << "' of '" << name_ << "', expected '"
                 << boost::typeindex::type_id<T>().pretty_name() << "'");
     }
   }
@@ -70,7 +70,7 @@ struct Table : public std::shared_ptr<arrow::Table> {
       // can not return null value columns as raw because those null values are
       // not initialized. can not use chunk->IsNull(i) to check
       LOG_FATAL("DataRegistry: can not get #"
-                << icol << " column of '" << name
+                << icol << " column of '" << name_
                 << "' as a raw pointer, because it has "
                 << (data->num_chunks() > 1 ? "more than 1 chunks"
                                            : "has null value"));
@@ -107,7 +107,7 @@ struct Table : public std::shared_ptr<arrow::Table> {
     auto col = (*this)->column(icol)->data();
     if (irow >= num_rows()) {
       LOG_FATAL("DataRegistry: row index " << irow << " out of range "
-                                           << num_rows() << " of '" << name
+                                           << num_rows() << " of '" << name_
                                            << "'");
     }
     auto chunk = col->chunk(0);
@@ -165,7 +165,7 @@ struct Table : public std::shared_ptr<arrow::Table> {
     int num_rows = this->num_rows();
     if (irow >= num_rows) {
       LOG_FATAL("DataRegistry: row index " << irow << " out of range "
-                                           << num_rows << " of '" << name
+                                           << num_rows << " of '" << name_
                                            << "'");
     }
     auto chunk = col->chunk(0);
@@ -235,15 +235,18 @@ struct Table : public std::shared_ptr<arrow::Table> {
       LOG_FATAL(
           "DataRegistry: Data function only works for one column table, not "
           "applicable to '"
-          << name << "'");
+          << name_ << "'");
     }
     return Column<T>(0);
   }
   // parquet has extra one index column
   int num_columns() { return (*this)->num_columns() - 1; }
   int num_rows() { return (*this)->num_rows(); }
+  const std::string& name() const { return name_; }
 
-  std::string name;
+ private:
+  std::string name_;
+  friend class DataRegistry;
 };
 
 class DataRegistry : public Singleton<DataRegistry> {

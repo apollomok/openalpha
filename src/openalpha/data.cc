@@ -15,7 +15,7 @@ Table DataRegistry::GetData(const std::string& name, bool retain) {
     std::shared_ptr<arrow::Table> table;
     arrow::py::unwrap_table(obj.ptr(), &table);
     out.swap(table);
-    out.name = name;
+    out.name_ = name;
     if (retain) array_map_[name] = out;
     LOG_INFO("DataRegistry: " << name << " loaded");
   } catch (const bp::error_already_set& err) {
