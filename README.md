@@ -77,6 +77,7 @@ Openalpha has default report, and dump out daily pnl file. You can also use [scr
 
 [scripts/openalpha.py](https://github.com/opentradesolutions/openalpha/blob/master/scripts/openalpha.py) is a simplified pure-python version of openalpha. The performance can be optimized with cython. You can run it as below.
 
+
 ```bash
 ./scripts/openalpha.py -l 2 sample.py
 ```
