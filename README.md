@@ -59,6 +59,17 @@ wget -O data.tgz https://www.dropbox.com/s/wdernq2kz3rgcoo/openalpha.tar.xz?dl=0
 
 All data files are stored in hdf5 file format. Please have a look at [data files](https://www.dropbox.com/s/wdernq2kz3rgcoo/openalpha.tar.xz?dl=0). "data/symbol.h5" defines all instruments. "data/dates.h5" defines all dates. All the other files are 2D arrays. The row is indexed by date, we call it di in our code. The column is indexed by instrument, we call it ii in our code. The transposed version of data file is suffixed with '_t', e.g. transposed 'close.h5' file is named with 'close_t.h5'. There are some help functions in [scripts/data.py](https://github.com/opentradesolutions/openalpha/blob/master/scripts/data.py) for data handling.
 
+## Parquet format data file
+
+We also support parquet file, please check out parquet branch.
+
+https://github.com/opentradesolutions/openalpha/tree/parquet
+
+In most of cases, HDF5 data format is faster than parquet. If there is no memory limit issue, Please use HDF5.
+
+In parquet branch, array is column major in memory instead of row major in hdf5. So there is C++ api difference, please check out
+sample c++ file, [HDF5](https://github.com/opentradesolutions/openalpha/blob/master/src/alpha/sample/sample.cc) vs [Parquet](https://github.com/opentradesolutions/openalpha/blob/parquet/src/alpha/sample/sample.cc). Python API are the same.
+
 ## Report
 
 Openalpha has default report, and dump out daily pnl file. You can also use [scripts/simsummary.py](https://github.com/opentradesolutions/openalpha/blob/master/scripts/simsummary.py) on the daily pnl file to generate more detailed report, plot, and do correlation calculation. Or you can use [ffn](http://pmorissette.github.io/ffn/).
